@@ -10,9 +10,12 @@ import {
 import { seed } from './seed';
 import type {
   Appointment,
+  AuditEntry,
   Contact,
   ContractDoc,
+  Coupon,
   CustomField,
+  CustomValue,
   Invoice,
   MediaAsset,
   Note,
@@ -29,7 +32,7 @@ import type {
   Workflow,
 } from './types';
 
-const STORAGE_KEY = 'ghl-lite.workspace.v3';
+const STORAGE_KEY = 'ghl-lite.workspace.v4';
 
 export function uid(prefix = 'id'): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
@@ -63,6 +66,14 @@ export type Action =
   | { type: 'task/add'; task: Task }
   | { type: 'task/toggle'; id: string }
   | { type: 'task/delete'; id: string }
+  | { type: 'coupon/add'; coupon: Coupon }
+  | { type: 'coupon/update'; id: string; patch: Partial<Coupon> }
+  | { type: 'coupon/toggle'; id: string }
+  | { type: 'coupon/delete'; id: string }
+  | { type: 'customValue/add'; customValue: CustomValue }
+  | { type: 'customValue/update'; id: string; patch: Partial<CustomValue> }
+  | { type: 'customValue/delete'; id: string }
+  | { type: 'audit/clear' }
   | { type: 'post/add'; post: SocialPost }
   | { type: 'post/status'; id: string; status: SocialPost['status'] }
   | { type: 'site/toggle'; id: string }
@@ -112,7 +123,7 @@ function pruneContacts(state: WorkspaceState, ids: Set<string>): WorkspaceState 
   };
 }
 
-function reducer(state: WorkspaceState, action: Action): WorkspaceState {
+function applyAction(state: WorkspaceState, action: Action): WorkspaceState {
   switch (action.type) {
     case 'contact/add':
       return { ...state, contacts: [action.contact, ...state.contacts] };
@@ -270,6 +281,41 @@ function reducer(state: WorkspaceState, action: Action): WorkspaceState {
 
     case 'task/delete':
       return { ...state, tasks: state.tasks.filter((t) => t.id !== action.id) };
+
+    case 'coupon/add':
+      return { ...state, coupons: [action.coupon, ...state.coupons] };
+
+    case 'coupon/update':
+      return {
+        ...state,
+        coupons: state.coupons.map((c) => (c.id === action.id ? { ...c, ...action.patch } : c)),
+      };
+
+    case 'coupon/toggle':
+      return {
+        ...state,
+        coupons: state.coupons.map((c) => (c.id === action.id ? { ...c, active: !c.active } : c)),
+      };
+
+    case 'coupon/delete':
+      return { ...state, coupons: state.coupons.filter((c) => c.id !== action.id) };
+
+    case 'customValue/add':
+      return { ...state, customValues: [...state.customValues, action.customValue] };
+
+    case 'customValue/update':
+      return {
+        ...state,
+        customValues: state.customValues.map((c) =>
+          c.id === action.id ? { ...c, ...action.patch } : c,
+        ),
+      };
+
+    case 'customValue/delete':
+      return { ...state, customValues: state.customValues.filter((c) => c.id !== action.id) };
+
+    case 'audit/clear':
+      return { ...state, auditLog: [] };
 
     case 'post/add':
       return { ...state, posts: [action.post, ...state.posts] };
@@ -440,6 +486,257 @@ function reducer(state: WorkspaceState, action: Action): WorkspaceState {
     default:
       return state;
   }
+}
+
+/**
+ * Describes the workspace change for the audit log. Returning null keeps an
+ * action out of the log (reads, resets and high-frequency pings).
+ */
+function auditMeta(
+  state: WorkspaceState,
+  action: Action,
+): Pick<AuditEntry, 'action' | 'entity' | 'detail'> | null {
+  const contactName = (id: string) => {
+    const c = state.contacts.find((x) => x.id === id);
+    return c ? `${c.firstName} ${c.lastName}` : 'Unknown contact';
+  };
+  const byId = <T extends { id: string }>(list: T[], id: string) => list.find((x) => x.id === id);
+
+  switch (action.type) {
+    case 'contact/add':
+      return {
+        action: 'Contact created',
+        entity: 'Contact',
+        detail: `${action.contact.firstName} ${action.contact.lastName}`,
+      };
+    case 'contact/update':
+      return { action: 'Contact updated', entity: 'Contact', detail: contactName(action.id) };
+    case 'contact/delete':
+      return { action: 'Contact deleted', entity: 'Contact', detail: contactName(action.id) };
+    case 'contact/bulkTag':
+      return {
+        action: 'Contacts tagged',
+        entity: 'Contact',
+        detail: `${action.ids.length} contact${action.ids.length === 1 ? '' : 's'} · ${action.tag}`,
+      };
+    case 'contact/bulkStatus':
+      return {
+        action: 'Contacts status changed',
+        entity: 'Contact',
+        detail: `${action.ids.length} contact${action.ids.length === 1 ? '' : 's'} → ${action.status}`,
+      };
+    case 'contact/bulkDelete':
+      return {
+        action: 'Contacts deleted',
+        entity: 'Contact',
+        detail: `${action.ids.length} contact${action.ids.length === 1 ? '' : 's'}`,
+      };
+    case 'contact/note':
+      return { action: 'Note added', entity: 'Contact', detail: contactName(action.id) };
+
+    case 'opportunity/add':
+      return { action: 'Opportunity created', entity: 'Opportunity', detail: action.opportunity.name };
+    case 'opportunity/move': {
+      const opp = byId(state.opportunities, action.id);
+      const stage = state.pipelines.flatMap((p) => p.stages).find((s) => s.id === action.stageId);
+      return {
+        action: 'Opportunity stage changed',
+        entity: 'Opportunity',
+        detail: opp && stage ? `${opp.name} → ${stage.name}` : opp?.name,
+      };
+    }
+    case 'opportunity/delete':
+      return {
+        action: 'Opportunity deleted',
+        entity: 'Opportunity',
+        detail: byId(state.opportunities, action.id)?.name,
+      };
+
+    case 'appointment/add':
+      return { action: 'Appointment booked', entity: 'Calendar', detail: action.appointment.title };
+    case 'appointment/status':
+      return {
+        action: 'Appointment status changed',
+        entity: 'Calendar',
+        detail: byId(state.appointments, action.id)?.title,
+      };
+
+    case 'invoice/add':
+      return { action: 'Invoice created', entity: 'Invoice', detail: action.invoice.number };
+    case 'invoice/status': {
+      const invoice = byId(state.invoices, action.id);
+      return {
+        action: `Invoice marked ${action.status}`,
+        entity: 'Invoice',
+        detail: invoice ? `${invoice.number} · $${invoice.amount.toLocaleString('en-US')}` : undefined,
+      };
+    }
+
+    case 'product/add':
+      return { action: 'Product created', entity: 'Product', detail: action.product.name };
+    case 'product/update':
+      return {
+        action: 'Product updated',
+        entity: 'Product',
+        detail: action.patch.name ?? byId(state.products, action.id)?.name,
+      };
+    case 'product/toggle': {
+      const product = byId(state.products, action.id);
+      return {
+        action: `Product ${product?.active ? 'paused' : 'enabled'}`,
+        entity: 'Product',
+        detail: product?.name,
+      };
+    }
+
+    case 'paymentLink/add':
+      return { action: 'Payment link created', entity: 'Payment Link', detail: action.link.name };
+    case 'paymentLink/toggle': {
+      const link = byId(state.paymentLinks, action.id);
+      return {
+        action: `Payment link ${link?.active ? 'paused' : 'enabled'}`,
+        entity: 'Payment Link',
+        detail: link?.name,
+      };
+    }
+
+    case 'task/add':
+      return { action: 'Task created', entity: 'Task', detail: action.task.title };
+    case 'task/toggle': {
+      const task = byId(state.tasks, action.id);
+      return {
+        action: `Task ${task?.done ? 'reopened' : 'completed'}`,
+        entity: 'Task',
+        detail: task?.title,
+      };
+    }
+    case 'task/delete':
+      return { action: 'Task deleted', entity: 'Task', detail: byId(state.tasks, action.id)?.title };
+
+    case 'coupon/add':
+      return {
+        action: 'Coupon created',
+        entity: 'Coupon',
+        detail: `${action.coupon.code} · ${action.coupon.kind === 'percent' ? `${action.coupon.value}% off` : `$${action.coupon.value} off`}`,
+      };
+    case 'coupon/update':
+      return {
+        action: 'Coupon updated',
+        entity: 'Coupon',
+        detail: action.patch.code ?? byId(state.coupons, action.id)?.code,
+      };
+    case 'coupon/toggle': {
+      const coupon = byId(state.coupons, action.id);
+      return {
+        action: `Coupon ${coupon?.active ? 'paused' : 'enabled'}`,
+        entity: 'Coupon',
+        detail: coupon?.code,
+      };
+    }
+    case 'coupon/delete':
+      return { action: 'Coupon deleted', entity: 'Coupon', detail: byId(state.coupons, action.id)?.code };
+
+    case 'customValue/add':
+      return { action: 'Custom value created', entity: 'Custom Value', detail: action.customValue.name };
+    case 'customValue/update':
+      return {
+        action: 'Custom value updated',
+        entity: 'Custom Value',
+        detail: action.patch.name ?? byId(state.customValues, action.id)?.name,
+      };
+    case 'customValue/delete':
+      return {
+        action: 'Custom value deleted',
+        entity: 'Custom Value',
+        detail: byId(state.customValues, action.id)?.name,
+      };
+
+    case 'document/add':
+      return { action: 'Document created', entity: 'Document', detail: action.document.name };
+    case 'document/status':
+      return {
+        action: `Document marked ${action.status}`,
+        entity: 'Document',
+        detail: byId(state.documents, action.id)?.name,
+      };
+
+    case 'workflow/add':
+      return { action: 'Workflow created', entity: 'Workflow', detail: action.workflow.name };
+    case 'workflow/toggle': {
+      const flow = byId(state.workflows, action.id);
+      return {
+        action: `Workflow ${flow?.status === 'published' ? 'unpublished' : 'published'}`,
+        entity: 'Workflow',
+        detail: flow?.name,
+      };
+    }
+
+    case 'course/toggle': {
+      const course = byId(state.courses, action.id);
+      return {
+        action: `Course ${course?.published ? 'unpublished' : 'published'}`,
+        entity: 'Membership',
+        detail: course?.title,
+      };
+    }
+    case 'blog/toggle': {
+      const post = byId(state.blogs, action.id);
+      return {
+        action: `Blog post ${post?.status === 'published' ? 'unpublished' : 'published'}`,
+        entity: 'Blog',
+        detail: post?.title,
+      };
+    }
+
+    case 'team/add':
+      return { action: 'Team member added', entity: 'Team', detail: action.member.name };
+    case 'team/role': {
+      const member = byId(state.team, action.id);
+      return {
+        action: 'Team role changed',
+        entity: 'Team',
+        detail: member ? `${member.name} → ${action.role}` : `→ ${action.role}`,
+      };
+    }
+    case 'integration/toggle': {
+      const integration = byId(state.integrations, action.id);
+      return {
+        action: `Integration ${integration?.connected ? 'disconnected' : 'connected'}`,
+        entity: 'Integration',
+        detail: integration?.name,
+      };
+    }
+
+    case 'review/reply':
+      return {
+        action: 'Review replied',
+        entity: 'Reputation',
+        detail: contactName(byId(state.reviews, action.id)?.contactId ?? ''),
+      };
+    case 'review/status':
+      return {
+        action: `Review marked ${action.status}`,
+        entity: 'Reputation',
+        detail: contactName(byId(state.reviews, action.id)?.contactId ?? ''),
+      };
+
+    default:
+      return null;
+  }
+}
+
+export function reducer(state: WorkspaceState, action: Action): WorkspaceState {
+  const next = applyAction(state, action);
+  if (next === state) return state;
+  const meta = auditMeta(state, action);
+  if (!meta) return next;
+  const entry: AuditEntry = {
+    id: uid('au'),
+    at: new Date().toISOString(),
+    actor: 'Asim R.',
+    ...meta,
+  };
+  return { ...next, auditLog: [entry, ...next.auditLog].slice(0, 250) };
 }
 
 function loadInitial(): WorkspaceState {

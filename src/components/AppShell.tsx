@@ -64,6 +64,7 @@ function Sidebar({ onNavigate }: { onNavigate: () => void }) {
         { to: '/payments', label: 'Payments', icon: 'wallet' },
         { to: '/products', label: 'Products', icon: 'tag' },
         { to: '/payment-links', label: 'Payment Links', icon: 'link' },
+        { to: '/coupons', label: 'Coupons', icon: 'tag' },
         { to: '/orders', label: 'Orders', icon: 'clipboard' },
         { to: '/subscriptions', label: 'Subscriptions', icon: 'repeat' },
         { to: '/documents', label: 'Contracts', icon: 'file' },
@@ -72,6 +73,13 @@ function Sidebar({ onNavigate }: { onNavigate: () => void }) {
     {
       label: 'Client Experience',
       items: [{ to: '/memberships', label: 'Memberships', icon: 'book' }],
+    },
+    {
+      label: 'Workspace',
+      items: [
+        { to: '/custom-values', label: 'Custom Values', icon: 'sliders' },
+        { to: '/audit-log', label: 'Audit Log', icon: 'clipboard' },
+      ],
     },
   ];
 
@@ -320,6 +328,9 @@ function TopBar({ onOpenNav }: { onOpenNav: () => void }) {
     '/payments': 'Payments',
     '/products': 'Products',
     '/payment-links': 'Payment Links',
+    '/coupons': 'Coupons',
+    '/custom-values': 'Custom Values',
+    '/audit-log': 'Audit Log',
     '/settings': 'Settings',
   };
   const title = titles[location.pathname] ?? 'Workspace';

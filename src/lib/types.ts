@@ -137,6 +137,43 @@ export interface PaymentLink {
   createdAt: string;
 }
 
+export type CouponKind = 'percent' | 'fixed';
+
+export interface Coupon {
+  id: ID;
+  /** Always stored upper-case. */
+  code: string;
+  kind: CouponKind;
+  /** Percent off (0–100) for percent coupons, USD off for fixed coupons. */
+  value: number;
+  /** Checkout minimum, 0 means no minimum. */
+  minAmount: number;
+  /** Redemption ceiling, null means unlimited. */
+  maxRedemptions: number | null;
+  redemptions: number;
+  active: boolean;
+  /** ISO date-time, null means it never expires. */
+  expiresAt: string | null;
+  createdAt: string;
+}
+
+export interface CustomValue {
+  id: ID;
+  /** Human label, e.g. "Business name". */
+  name: string;
+  value: string;
+}
+
+export interface AuditEntry {
+  id: ID;
+  at: string;
+  actor: string;
+  /** Short human summary, e.g. "Invoice marked paid". */
+  action: string;
+  entity: string;
+  detail?: string;
+}
+
 export type CampaignStatus = 'draft' | 'scheduled' | 'sent';
 
 export interface Campaign {
@@ -410,6 +447,9 @@ export interface WorkspaceState {
   products: Product[];
   paymentLinks: PaymentLink[];
   tasks: Task[];
+  coupons: Coupon[];
+  customValues: CustomValue[];
+  auditLog: AuditEntry[];
   campaigns: Campaign[];
   posts: SocialPost[];
   sites: Site[];

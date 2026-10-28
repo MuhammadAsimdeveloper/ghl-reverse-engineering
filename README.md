@@ -44,6 +44,9 @@ npm run typecheck  # types only
 | Payments | `/payments` | Invoices with inline status, products, totals |
 | Products & Price Book | `/products` | One-time/recurring items, inline toggles, add + edit pricing |
 | Payment Links | `/payment-links` | Product bundles, copy link, visit/conversion metrics |
+| Coupons | `/coupons` | Percent/fixed codes, limits, expiry states, pause + edit |
+| Custom Values | `/custom-values` | Reusable merge tokens with copy-to-clipboard |
+| Audit Log | `/audit-log` | Every workspace mutation, filterable by actor and entity |
 | Contracts | `/documents` | Proposals/contracts/estimates, create modal, status pipeline |
 | Campaigns | `/campaigns` | Email/SMS metrics, CTR bars, delivery funnel |
 | Social Planner | `/social` | Draft → scheduled → published board, post composer |
@@ -82,7 +85,7 @@ src/
 
 There is no backend. `StoreProvider` holds the whole workspace in a `useReducer`, and every
 action returns a new immutable state. The state is mirrored into `localStorage` under
-`ghl-lite.workspace.v3` after each change, so your edits survive a refresh. **Settings → Workspace
+`ghl-lite.workspace.v4` after each change, so your edits survive a refresh. **Settings → Workspace
 data → Reset** restores the seed.
 
 To add a field or entity:

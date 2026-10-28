@@ -12,6 +12,9 @@ import SmartLists from './pages/SmartLists';
 import Payments from './pages/Payments';
 import Products from './pages/Products';
 import PaymentLinks from './pages/PaymentLinks';
+import Coupons from './pages/Coupons';
+import CustomValues from './pages/CustomValues';
+import AuditLog from './pages/AuditLog';
 import Orders from './pages/Orders';
 import Subscriptions from './pages/Subscriptions';
 import Campaigns from './pages/Campaigns';
@@ -50,6 +53,9 @@ export default function App() {
         <Route path="payments" element={<Payments />} />
         <Route path="products" element={<Products />} />
         <Route path="payment-links" element={<PaymentLinks />} />
+        <Route path="coupons" element={<Coupons />} />
+        <Route path="custom-values" element={<CustomValues />} />
+        <Route path="audit-log" element={<AuditLog />} />
         <Route path="orders" element={<Orders />} />
         <Route path="subscriptions" element={<Subscriptions />} />
         <Route path="documents" element={<Documents />} />
