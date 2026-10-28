@@ -61,6 +61,7 @@ function Sidebar({ onNavigate }: { onNavigate: () => void }) {
     {
       label: 'Commerce',
       items: [
+        { to: '/store', label: 'Store', icon: 'store' },
         { to: '/payments', label: 'Payments', icon: 'wallet' },
         { to: '/products', label: 'Products', icon: 'tag' },
         { to: '/payment-links', label: 'Payment Links', icon: 'link' },
@@ -335,6 +336,7 @@ function TopBar({ onOpenNav }: { onOpenNav: () => void }) {
     '/forms': 'Forms & Surveys',
     '/workflows': 'Workflows',
     '/payments': 'Payments',
+    '/store': 'Store',
     '/products': 'Products',
     '/payment-links': 'Payment Links',
     '/coupons': 'Coupons',

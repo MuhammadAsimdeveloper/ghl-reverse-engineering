@@ -16,6 +16,7 @@ export default function Conversations() {
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(state.conversations[0]?.id ?? null);
   const [draft, setDraft] = useState('');
+  const [subject, setSubject] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const contactOf = (id: string) => state.contacts.find((c) => c.id === id);
@@ -44,19 +45,32 @@ export default function Conversations() {
 
   const openConversation = (id: string) => {
     setSelectedId(id);
+    setDraft('');
+    setSubject('');
+    setPickerOpen(false);
     dispatch({ type: 'conversation/read', id });
   };
 
   const send = () => {
     if (!selected || !draft.trim()) return;
-    dispatch({ type: 'conversation/send', id: selected.id, body: draft.trim() });
+    dispatch({
+      type: 'conversation/send',
+      id: selected.id,
+      body: draft.trim(),
+      subject: selected.channel === 'email' && subject.trim() ? subject.trim() : undefined,
+    });
     setDraft('');
+    setSubject('');
   };
 
   const insertSnippet = (snippet: Snippet) => {
     if (!selected) return;
     const text = resolveMerge(snippet.body, selectedContact, state.customValues);
     setDraft((prev) => (prev.trim() ? `${prev.trimEnd()} ${text}` : text));
+    if (selected.channel === 'email' && snippet.subject) {
+      const line = resolveMerge(snippet.subject, selectedContact, state.customValues);
+      setSubject((prev) => (prev.trim() ? prev : line));
+    }
     dispatch({ type: 'snippet/use', id: snippet.id });
     setPickerOpen(false);
   };
@@ -64,6 +78,8 @@ export default function Conversations() {
   const snippetsForChannel = selected
     ? state.snippets.filter((s) => !s.channel || s.channel === selected.channel)
     : [];
+  const smsChars = draft.trim().length;
+  const smsSegments = Math.max(1, Math.ceil(smsChars / 160));
 
   return (
     <div className="content content--flush">
@@ -179,6 +195,7 @@ export default function Conversations() {
             <div className="thread__scroll">
               {selected.messages.map((m) => (
                 <div key={m.id} className={`bubble bubble--${m.direction}`}>
+                  {m.subject && <div className="bubble__subject">{m.subject}</div>}
                   {m.body}
                   <div className="bubble__meta">
                     {m.direction === 'out' ? 'Asim R. · ' : ''}
@@ -188,7 +205,19 @@ export default function Conversations() {
               ))}
             </div>
 
-            <div className="thread__composer">
+            <div
+              className={`thread__composer${selected.channel === 'email' ? ' thread__composer--stack' : ''}`}
+            >
+              {selected.channel === 'email' && (
+                <input
+                  className="composer__subject"
+                  placeholder="Subject line…"
+                  aria-label="Email subject"
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                />
+              )}
+              <div className="composer__row">
               <div className="composer__snippets">
                 <button
                   className="icon-btn"
@@ -222,6 +251,11 @@ export default function Conversations() {
                                 <Badge>{CHANNEL_META[snippet.channel].label}</Badge>
                               )}
                             </span>
+                            {snippet.subject && (
+                              <span className="popover__subject">
+                                {resolveMerge(snippet.subject, selectedContact, state.customValues)}
+                              </span>
+                            )}
                             <span className="popover__body">
                               {resolveMerge(snippet.body, selectedContact, state.customValues)}
                             </span>
@@ -250,6 +284,15 @@ export default function Conversations() {
               <button className="btn btn--primary" onClick={send} disabled={!draft.trim()}>
                 <Icon name="send" size={15} /> Send
               </button>
+              </div>
+              {selected.channel === 'sms' && (
+                <div className="composer__hint">
+                  <span>{smsChars} characters</span>
+                  <span>
+                    {smsSegments} SMS segment{smsSegments === 1 ? '' : 's'}
+                  </span>
+                </div>
+              )}
             </div>
           </section>
         ) : (

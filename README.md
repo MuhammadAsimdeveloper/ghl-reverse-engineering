@@ -34,8 +34,8 @@ npm run typecheck  # types only
 | Module | Route | What it demonstrates |
 | --- | --- | --- |
 | Dashboard | `/` | KPI cards, revenue line chart, pipeline donut, today's agenda |
-| Conversations | `/conversations` | Two-pane inbox, channel filters, threads, message composer, snippet picker |
-| Snippets | `/snippets` | Saved replies with channel targeting, merge tokens and usage counts |
+| Conversations | `/conversations` | Two-pane inbox, channel filters, threads, channel-aware composer (email subject, SMS segment count), snippet picker |
+| Snippets | `/snippets` | Saved replies with optional email subject, channel targeting, merge tokens and usage counts |
 | Calendars | `/calendars` | Month grid, weekly hours per calendar, round-robin assignees, overlap blocking |
 | Contacts | `/contacts` | Searchable/filterable table, tags, bulk tag/status/delete, create + edit |
 | Contact detail | `/contacts/:id` | Profile tabs, notes, tasks, deals, invoices, delete flow |
@@ -57,8 +57,9 @@ npm run typecheck  # types only
 | Websites | `/websites` | Site pages, per-page stats, preview modal |
 | Forms & Surveys | `/forms` | Type tabs, submission counts, live toggles |
 | Workflows | `/workflows` | Automation list + step-by-step flow diagram |
+| Store | `/store` | Product storefront, cart, coupon redemption, simulated gateways with fee math, atomic checkout |
 | Memberships | `/memberships` | Course/community offers, lesson curriculum with per-lesson drip days, unlock counts |
-| Reporting | `/reporting` | Multi-series charts, saveable metric reports with prior-period deltas, team table |
+| Reporting | `/reporting` | Custom widget dashboard, multi-series charts, saveable metric reports with prior-period deltas, team table |
 | Settings | `/settings` | Business profile, team roles, custom fields, integrations, reset |
 | Sub-accounts | `/sub-accounts` | Agency-level client accounts, plan catalog, seat/contact limits, derived MRR |
 
@@ -88,17 +89,24 @@ src/
 
 There is no backend. `StoreProvider` holds the whole workspace in a `useReducer`, and every
 action returns a new immutable state. The state is mirrored into `localStorage` under
-`ghl-lite.workspace.v7` after each change, so your edits survive a refresh. **Settings → Workspace
+`ghl-lite.workspace.v8` after each change, so your edits survive a refresh. **Settings → Workspace
 data → Reset** restores the seed. A derived audit log records every logged mutation, and
 snippets resolve `{{contact.*}}` and `{{custom_values.*}}` tokens when inserted into a reply.
 
 Sub-account MRR is not stored: it is derived from the plan's price whenever the account status is
 `active`, so editing a plan in the sidebar immediately reprices every account on it. Drip content
 works the same way — a lesson's `dripDays` is compared with the days elapsed since the member
-enrolled, so an unlock count is always computed rather than persisted. Saved reports and review
-requests follow the same rule: report values are computed from invoice, opportunity and contact
-timestamps for the chosen window, and request messages store raw merge tokens that resolve at
-render time.
+enrolled, so an unlock count is always computed rather than persisted. Saved reports, dashboard
+widgets and review requests follow the same rule: metric values are computed from invoice,
+opportunity and contact timestamps for the chosen window, and request messages store raw merge
+tokens that resolve at render time.
+
+The Store follows the same derived-first approach. A coupon's usability (active flag, minimum
+spend, expiry, redemption cap) is re-evaluated against the current cart every time the cart
+changes, and the gateway's processing fee and the receipt's net amount are computed from the
+gateway's `feePct`/`feeFixed` at render. Checkout itself is one atomic store action: it appends
+the order and a paid invoice, records the coupon redemption and writes a single audit entry, so
+the three records can never drift apart.
 
 To add a field or entity:
 
@@ -124,6 +132,8 @@ This is a front-end learning project, so some things are intentionally out of sc
 - **No authentication.** Every route is open; there is no login, session or permissions model.
 - **No real data or PII.** All contacts, companies and numbers are invented.
 - **No network calls.** Messaging, publishing and payment actions update local state only.
+- **No payment processing.** Store gateways are labels with illustrative fee math; no card data,
+  processor credentials or payment intent ever exists.
 - **No server, database or job queue.** Persistence is browser-local.
 
 Those are the parts you would need to design yourself before this could serve real users.

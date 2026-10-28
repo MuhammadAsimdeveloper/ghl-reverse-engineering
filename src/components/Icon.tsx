@@ -267,6 +267,19 @@ const paths: Record<string, ReactNode> = {
     </>
   ),
   repeat: <path d="M4 9a5 5 0 0 1 5-5h9l-3-3m3 3-3 3M20 15a5 5 0 0 1-5 5H6l3 3m-3-3 3-3" />,
+  store: (
+    <>
+      <path d="M4 9.5 5.5 4h13L20 9.5" />
+      <path d="M4 9.5a2.2 2.2 0 0 0 4.4 0 2.2 2.2 0 0 0 4.4 0 2.2 2.2 0 0 0 4.4 0 2.2 2.2 0 0 0 2.8 1.6" />
+      <path d="M5.5 12.5V20h13v-7.5M10 20v-4.5h4V20" />
+    </>
+  ),
+  'credit-card': (
+    <>
+      <rect x="3" y="5.5" width="18" height="13" rx="2.2" />
+      <path d="M3 10h18M7 14.5h4" />
+    </>
+  ),
 };
 
 export interface IconProps extends Omit<SVGProps<SVGSVGElement>, 'name'> {

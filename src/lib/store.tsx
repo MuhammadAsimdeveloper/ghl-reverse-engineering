@@ -18,11 +18,14 @@ import type {
   Course,
   CustomField,
   CustomValue,
+  DashboardWidget,
   Invoice,
   Lesson,
   MediaAsset,
   Note,
   Opportunity,
+  Order,
+  PaymentGateway,
   PaymentLink,
   Product,
   QrCode,
@@ -42,7 +45,7 @@ import type {
   Workflow,
 } from './types';
 
-const STORAGE_KEY = 'ghl-lite.workspace.v7';
+const STORAGE_KEY = 'ghl-lite.workspace.v8';
 
 export function uid(prefix = 'id'): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
@@ -59,7 +62,7 @@ export type Action =
   | { type: 'opportunity/add'; opportunity: Opportunity }
   | { type: 'opportunity/move'; id: string; stageId: string }
   | { type: 'opportunity/delete'; id: string }
-  | { type: 'conversation/send'; id: string; body: string }
+  | { type: 'conversation/send'; id: string; body: string; subject?: string }
   | { type: 'conversation/read'; id: string }
   | { type: 'conversation/star'; id: string }
   | { type: 'appointment/add'; appointment: Appointment }
@@ -99,6 +102,12 @@ export type Action =
   | { type: 'site/duplicate'; copy: Site }
   | { type: 'report/add'; report: SavedReport }
   | { type: 'report/delete'; id: string }
+  | { type: 'widget/add'; widget: DashboardWidget }
+  | { type: 'widget/delete'; id: string }
+  | { type: 'widget/move'; id: string; direction: 'up' | 'down' }
+  | { type: 'gateway/toggle'; id: string }
+  | { type: 'gateway/mode'; id: string; mode: PaymentGateway['mode'] }
+  | { type: 'store/checkout'; order: Order; invoice: Invoice; couponId?: string }
   | { type: 'reviewRequest/add'; request: ReviewRequest }
   | { type: 'reviewRequest/send'; id: string }
   | { type: 'reviewRequest/delete'; id: string }
@@ -228,7 +237,13 @@ function applyAction(state: WorkspaceState, action: Action): WorkspaceState {
                 unread: 0,
                 messages: [
                   ...c.messages,
-                  { id: uid('msg'), direction: 'out', body: action.body, at: new Date().toISOString() },
+                  {
+                    id: uid('msg'),
+                    direction: 'out',
+                    subject: action.subject,
+                    body: action.body,
+                    at: new Date().toISOString(),
+                  },
                 ],
               }
             : c,
@@ -443,6 +458,52 @@ function applyAction(state: WorkspaceState, action: Action): WorkspaceState {
 
     case 'report/delete':
       return { ...state, savedReports: state.savedReports.filter((r) => r.id !== action.id) };
+
+    case 'widget/add':
+      return { ...state, dashboardWidgets: [...state.dashboardWidgets, action.widget] };
+
+    case 'widget/delete':
+      return {
+        ...state,
+        dashboardWidgets: state.dashboardWidgets.filter((w) => w.id !== action.id),
+      };
+
+    case 'widget/move': {
+      const idx = state.dashboardWidgets.findIndex((w) => w.id === action.id);
+      const target = action.direction === 'up' ? idx - 1 : idx + 1;
+      if (idx < 0 || target < 0 || target >= state.dashboardWidgets.length) return state;
+      const dashboardWidgets = [...state.dashboardWidgets];
+      [dashboardWidgets[idx], dashboardWidgets[target]] = [dashboardWidgets[target], dashboardWidgets[idx]];
+      return { ...state, dashboardWidgets };
+    }
+
+    case 'gateway/toggle':
+      return {
+        ...state,
+        paymentGateways: state.paymentGateways.map((g) =>
+          g.id === action.id ? { ...g, connected: !g.connected } : g,
+        ),
+      };
+
+    case 'gateway/mode':
+      return {
+        ...state,
+        paymentGateways: state.paymentGateways.map((g) =>
+          g.id === action.id ? { ...g, mode: action.mode } : g,
+        ),
+      };
+
+    case 'store/checkout':
+      return {
+        ...state,
+        orders: [action.order, ...state.orders],
+        invoices: [action.invoice, ...state.invoices],
+        coupons: action.couponId
+          ? state.coupons.map((c) =>
+              c.id === action.couponId ? { ...c, redemptions: c.redemptions + 1 } : c,
+            )
+          : state.coupons,
+      };
 
     case 'reviewRequest/add':
       return { ...state, reviewRequests: [action.request, ...state.reviewRequests] };
@@ -1029,6 +1090,42 @@ function auditMeta(
         action: 'Report deleted',
         entity: 'Reporting',
         detail: byId(state.savedReports, action.id)?.name,
+      };
+    case 'widget/add':
+      return { action: 'Dashboard widget added', entity: 'Reporting', detail: action.widget.title };
+    case 'widget/delete':
+      return {
+        action: 'Dashboard widget removed',
+        entity: 'Reporting',
+        detail: byId(state.dashboardWidgets, action.id)?.title,
+      };
+    case 'widget/move':
+      return {
+        action: 'Dashboard widget reordered',
+        entity: 'Reporting',
+        detail: byId(state.dashboardWidgets, action.id)?.title,
+      };
+    case 'gateway/toggle': {
+      const gateway = byId(state.paymentGateways, action.id);
+      return {
+        action: `Payment gateway ${gateway?.connected ? 'disconnected' : 'connected'}`,
+        entity: 'Payments',
+        detail: gateway?.name,
+      };
+    }
+    case 'gateway/mode': {
+      const gateway = byId(state.paymentGateways, action.id);
+      return {
+        action: `Payment gateway set to ${action.mode}`,
+        entity: 'Payments',
+        detail: gateway?.name,
+      };
+    }
+    case 'store/checkout':
+      return {
+        action: 'Store checkout completed',
+        entity: 'Store',
+        detail: `${action.order.number} · $${action.order.total.toLocaleString('en-US')}${action.order.gateway ? ` · ${action.order.gateway}` : ''}`,
       };
     case 'site/step/add': {
       const site = byId(state.sites, action.siteId);

@@ -59,6 +59,8 @@ export interface Opportunity {
 export interface Message {
   id: ID;
   direction: 'in' | 'out';
+  /** Subject line for outbound email. */
+  subject?: string;
   body: string;
   at: string;
 }
@@ -106,6 +108,8 @@ export interface Appointment {
 export interface Snippet {
   id: ID;
   label: string;
+  /** Email subject line; ignored by channels that have no subject. */
+  subject?: string;
   body: string;
   /** Restricted to one channel, or undefined for every channel. */
   channel?: Channel;
@@ -312,6 +316,27 @@ export interface SavedReport {
   createdAt: string;
 }
 
+export type DashboardChart = 'stat' | 'line' | 'bar';
+
+export interface DashboardWidget {
+  id: ID;
+  title: string;
+  metric: ReportMetric;
+  chart: DashboardChart;
+  rangeDays: ReportRange;
+  createdAt: string;
+}
+
+/** Simulated processor — fees only, no credentials or card data are stored. */
+export interface PaymentGateway {
+  id: ID;
+  name: string;
+  feePct: number;
+  feeFixed: number;
+  connected: boolean;
+  mode: 'test' | 'live';
+}
+
 export type CourseKind = 'course' | 'community';
 
 export interface Lesson {
@@ -412,6 +437,9 @@ export interface Order {
   total: number;
   status: OrderStatus;
   at: string;
+  /** Payment gateway used at checkout. */
+  gateway?: string;
+  couponCode?: string;
 }
 
 export type SubscriptionStatus = 'active' | 'past_due' | 'canceled';
@@ -538,6 +566,8 @@ export interface WorkspaceState {
   listings: Listing[];
   reviewRequests: ReviewRequest[];
   savedReports: SavedReport[];
+  dashboardWidgets: DashboardWidget[];
+  paymentGateways: PaymentGateway[];
   courses: Course[];
   enrollments: Enrollment[];
   subAccounts: SubAccount[];

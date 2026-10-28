@@ -2155,6 +2155,70 @@ a {
   box-shadow: inset 0 0 0 2px var(--surface);
 }
 
+/* ---------- Store checkout and channel templates ---------- */
+
+.store-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2.1fr) minmax(300px, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.cart-qty {
+  min-width: 20px;
+  text-align: center;
+  font-size: 12.5px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  padding: 0 2px;
+}
+.bubble__subject {
+  font-weight: 650;
+  margin-bottom: 3px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+}
+.bubble--in .bubble__subject {
+  border-bottom-color: var(--line);
+}
+.thread__composer--stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 7px;
+}
+.composer__row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+.composer__subject {
+  width: 100%;
+  height: 34px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  padding: 7px 11px;
+  font-size: 12.5px;
+  font-weight: 600;
+  outline: none;
+}
+.composer__subject:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.composer__hint {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--text-3);
+  padding: 0 2px;
+}
+.popover__subject {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 650;
+  color: var(--text-2);
+}
+
 /* ---------- Responsive ---------- */
 
 .sidebar__toggle {
@@ -2200,6 +2264,9 @@ a {
   }
   .grid--3,
   .grid--2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .store-layout {
     grid-template-columns: minmax(0, 1fr);
   }
   .inbox {

@@ -289,7 +289,7 @@ export const seed: WorkspaceState = {
       unread: 0,
       starred: false,
       messages: [
-        { id: 'm11', direction: 'out', body: 'Renewal docs are signed on our side — thank you for the quick turnaround.', at: minutesAgo(4300) },
+        { id: 'm11', direction: 'out', subject: 'Renewal signed — Q3 kickoff', body: 'Renewal docs are signed on our side — thank you for the quick turnaround.', at: minutesAgo(4300) },
         { id: 'm12', direction: 'in', body: 'Great working with you. Let us know when Q3 reporting is ready.', at: minutesAgo(4200) },
       ],
     },
@@ -553,6 +553,18 @@ export const seed: WorkspaceState = {
     { id: 'rp2', name: 'Pipeline created', metric: 'pipeline', rangeDays: 90, createdAt: day(-14) },
     { id: 'rp3', name: 'Deals won', metric: 'deals', rangeDays: 90, createdAt: day(-7) },
     { id: 'rp4', name: 'New contacts', metric: 'contacts', rangeDays: 180, createdAt: day(-2) },
+  ],
+
+  dashboardWidgets: [
+    { id: 'dw1', title: 'Collected revenue', metric: 'revenue', chart: 'stat', rangeDays: 30, createdAt: day(-18) },
+    { id: 'dw2', title: 'Pipeline by period', metric: 'pipeline', chart: 'bar', rangeDays: 90, createdAt: day(-11) },
+    { id: 'dw3', title: 'Contact growth', metric: 'contacts', chart: 'line', rangeDays: 90, createdAt: day(-4) },
+  ],
+
+  paymentGateways: [
+    { id: 'gw1', name: 'Stripe', feePct: 2.9, feeFixed: 0.3, connected: true, mode: 'test' },
+    { id: 'gw2', name: 'PayPal', feePct: 3.49, feeFixed: 0.49, connected: true, mode: 'test' },
+    { id: 'gw3', name: 'Manual / offline', feePct: 0, feeFixed: 0, connected: true, mode: 'live' },
   ],
 
   courses: [
@@ -832,12 +844,12 @@ export const seed: WorkspaceState = {
   ],
 
   orders: [
-    { id: 'od1', number: 'ORD-3184', contactId: 'c2', items: 3, total: 2400, status: 'paid', at: day(-2, 11) },
-    { id: 'od2', number: 'ORD-3183', contactId: 'c5', items: 1, total: 299, status: 'paid', at: day(-4, 15) },
-    { id: 'od3', number: 'ORD-3182', contactId: 'c7', items: 2, total: 1180, status: 'pending', at: day(-5, 9) },
-    { id: 'od4', number: 'ORD-3181', contactId: 'c9', items: 1, total: 499, status: 'refunded', at: day(-8, 13) },
-    { id: 'od5', number: 'ORD-3180', contactId: 'c12', items: 4, total: 3600, status: 'paid', at: day(-11, 16) },
-    { id: 'od6', number: 'ORD-3179', contactId: 'c3', items: 1, total: 149, status: 'pending', at: day(-13, 10) },
+    { id: 'od1', number: 'ORD-3184', contactId: 'c2', items: 3, total: 2400, status: 'paid', at: day(-2, 11), gateway: 'Stripe' },
+    { id: 'od2', number: 'ORD-3183', contactId: 'c5', items: 1, total: 299, status: 'paid', at: day(-4, 15), gateway: 'PayPal' },
+    { id: 'od3', number: 'ORD-3182', contactId: 'c7', items: 2, total: 1180, status: 'pending', at: day(-5, 9), gateway: 'Stripe' },
+    { id: 'od4', number: 'ORD-3181', contactId: 'c9', items: 1, total: 499, status: 'refunded', at: day(-8, 13), gateway: 'Stripe' },
+    { id: 'od5', number: 'ORD-3180', contactId: 'c12', items: 4, total: 3600, status: 'paid', at: day(-11, 16), gateway: 'Manual / offline' },
+    { id: 'od6', number: 'ORD-3179', contactId: 'c3', items: 1, total: 149, status: 'pending', at: day(-13, 10), gateway: 'PayPal' },
   ],
 
   subscriptions: [
@@ -1178,6 +1190,7 @@ export const seed: WorkspaceState = {
     {
       id: 'sn1',
       label: 'Discovery follow-up',
+      subject: 'Following up from today',
       body: 'Hi {{contact.first_name}}, thanks for the call today. You can grab a time on my calendar here: {{custom_values.booking_link}}',
       channel: 'email',
       uses: 34,
@@ -1185,6 +1198,7 @@ export const seed: WorkspaceState = {
     {
       id: 'sn2',
       label: 'Pricing overview',
+      subject: 'Growth package — pricing and next steps',
       body: 'Hi {{contact.first_name}}, our Growth package is $2,400 one-time and includes onboarding. Happy to walk you through it on a quick call.',
       channel: 'email',
       uses: 21,
@@ -1198,6 +1212,7 @@ export const seed: WorkspaceState = {
     {
       id: 'sn4',
       label: 'Payment reminder',
+      subject: 'Invoice reminder',
       body: 'Hi {{contact.first_name}}, a friendly reminder that your invoice is due. Let me know if you need the payment link resent.',
       channel: 'email',
       uses: 28,

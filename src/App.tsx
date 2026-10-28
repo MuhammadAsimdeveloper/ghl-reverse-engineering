@@ -12,6 +12,7 @@ import Opportunities from './pages/Opportunities';
 import Reputation from './pages/Reputation';
 import SmartLists from './pages/SmartLists';
 import Payments from './pages/Payments';
+import Store from './pages/Store';
 import Products from './pages/Products';
 import PaymentLinks from './pages/PaymentLinks';
 import Coupons from './pages/Coupons';
@@ -54,6 +55,7 @@ export default function App() {
         <Route path="reputation" element={<Reputation />} />
         <Route path="smart-lists" element={<SmartLists />} />
         <Route path="payments" element={<Payments />} />
+        <Route path="store" element={<Store />} />
         <Route path="products" element={<Products />} />
         <Route path="payment-links" element={<PaymentLinks />} />
         <Route path="coupons" element={<Coupons />} />

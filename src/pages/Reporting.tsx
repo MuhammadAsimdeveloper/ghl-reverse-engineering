@@ -5,7 +5,14 @@ import { Avatar, Badge, PageHeader, StatCard } from '../components/ui';
 import { BarChart, Donut, LineChart, Spark } from '../components/Chart';
 import { uid, useStore } from '../lib/store';
 import { currency, num, pct } from '../lib/format';
-import type { ReportMetric, ReportRange, SavedReport, WorkspaceState } from '../lib/types';
+import type {
+  DashboardChart,
+  DashboardWidget,
+  ReportMetric,
+  ReportRange,
+  SavedReport,
+  WorkspaceState,
+} from '../lib/types';
 
 const METRIC_META: Record<ReportMetric, { label: string; color: string; money: boolean }> = {
   revenue: { label: 'Collected revenue', color: '#10b981', money: true },
@@ -14,8 +21,15 @@ const METRIC_META: Record<ReportMetric, { label: string; color: string; money: b
   contacts: { label: 'New contacts', color: '#f59e0b', money: false },
 };
 
+const CHART_META: Record<DashboardChart, string> = {
+  stat: 'Single value',
+  line: 'Trend line',
+  bar: 'Period bars',
+};
+
 const RANGE_OPTIONS: ReportRange[] = [30, 90, 180];
 const DAY = 86_400_000;
+const PERIOD_LABELS = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'];
 
 /** Metric total for [from, to) using record timestamps. */
 function metricInRange(state: WorkspaceState, metric: ReportMetric, from: number, to: number): number {
@@ -37,7 +51,10 @@ function metricInRange(state: WorkspaceState, metric: ReportMetric, from: number
   }
 }
 
-function reportSnapshot(state: WorkspaceState, report: SavedReport) {
+function reportSnapshot(
+  state: WorkspaceState,
+  report: Pick<SavedReport, 'metric' | 'rangeDays'> | Pick<DashboardWidget, 'metric' | 'rangeDays'>,
+) {
   const end = Date.now();
   const span = report.rangeDays * DAY;
   const current = metricInRange(state, report.metric, end - span, end);
@@ -55,8 +72,9 @@ function formatMetric(metric: ReportMetric, value: number): string {
 
 export default function Reporting() {
   const { state, dispatch } = useStore();
-  const { invoices, opportunities, contacts, campaigns, team, savedReports } = state;
+  const { invoices, opportunities, contacts, campaigns, team, savedReports, dashboardWidgets } = state;
   const [creating, setCreating] = useState(false);
+  const [addingWidget, setAddingWidget] = useState(false);
 
   const collected = invoices.filter((i) => i.status === 'paid').reduce((s, i) => s + i.amount, 0);
   const won = opportunities.filter((o) => o.status === 'won');
@@ -138,6 +156,114 @@ export default function Reporting() {
         <StatCard label="Won value" value={currency(wonValue)} icon={<Icon name="check" size={15} />} trend={{ direction: 'up', value: '6.8%' }} meta={`${won.length} deals`} />
         <StatCard label="Win rate" value={pct(won.length, closed.length || 1)} icon={<Icon name="chart" size={15} />} meta={`${closed.length} closed deals`} />
         <StatCard label="Email open rate" value={pct(Math.round(openRate * 100), 100)} icon={<Icon name="mail" size={15} />} meta={`${sent.length} campaigns`} />
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card__head">
+          <div>
+            <div className="card__title">Custom dashboard</div>
+            <div className="card__sub">Arrange your own mix of metrics, charts and ranges</div>
+          </div>
+          <div className="card__actions">
+            <Badge>{dashboardWidgets.length} widgets</Badge>
+            <button className="btn btn--sm" onClick={() => setAddingWidget(true)}>
+              <Icon name="plus" size={14} /> Add widget
+            </button>
+          </div>
+        </div>
+        <div className="card__body">
+          {dashboardWidgets.length === 0 ? (
+            <div className="hint">No widgets yet — add one to build a dashboard that fits your week.</div>
+          ) : (
+            <div className="grid grid--3">
+              {dashboardWidgets.map((widget, index) => {
+                const meta = METRIC_META[widget.metric];
+                const { current, delta, buckets } = reportSnapshot(state, widget);
+                return (
+                  <div
+                    key={widget.id}
+                    className="card"
+                    style={{ boxShadow: 'none', background: 'var(--surface-2)' }}
+                  >
+                    <div className="card__head">
+                      <div style={{ minWidth: 0 }}>
+                        <div className="card__title">{widget.title}</div>
+                        <div className="card__sub">
+                          {meta.label} · last {widget.rangeDays} days
+                        </div>
+                      </div>
+                      <div className="card__actions">
+                        <button
+                          type="button"
+                          className="icon-btn"
+                          aria-label={`Move ${widget.title} up`}
+                          disabled={index === 0}
+                          onClick={() => dispatch({ type: 'widget/move', id: widget.id, direction: 'up' })}
+                        >
+                          <Icon name="chevron-up" size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-btn"
+                          aria-label={`Move ${widget.title} down`}
+                          disabled={index === dashboardWidgets.length - 1}
+                          onClick={() => dispatch({ type: 'widget/move', id: widget.id, direction: 'down' })}
+                        >
+                          <Icon name="chevron-down" size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-btn"
+                          aria-label={`Remove ${widget.title}`}
+                          onClick={() => dispatch({ type: 'widget/delete', id: widget.id })}
+                        >
+                          <Icon name="trash" size={14} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="card__body stack" style={{ gap: 8 }}>
+                      {widget.chart === 'stat' && (
+                        <>
+                          <div className="row row--between" style={{ alignItems: 'flex-end', gap: 8 }}>
+                            <span style={{ fontSize: 24, fontWeight: 680, letterSpacing: '-0.02em' }}>
+                              {formatMetric(widget.metric, current)}
+                            </span>
+                            <Spark values={buckets} color={meta.color} />
+                          </div>
+                          <div className="cell-sub">
+                            {delta === null ? (
+                              <span style={{ color: 'var(--green)' }}>New in this period</span>
+                            ) : (
+                              <span style={{ color: delta >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                                {delta >= 0 ? '▲' : '▼'} {Math.abs(Math.round(delta * 100))}%
+                              </span>
+                            )}{' '}
+                            vs. previous {widget.rangeDays} days
+                          </div>
+                        </>
+                      )}
+                      {widget.chart === 'line' && (
+                        <LineChart
+                          labels={PERIOD_LABELS}
+                          series={[{ name: meta.label, color: meta.color, values: buckets }]}
+                          height={140}
+                        />
+                      )}
+                      {widget.chart === 'bar' && (
+                        <BarChart
+                          data={buckets.map((value, i) => ({ label: PERIOD_LABELS[i], value }))}
+                          color={meta.color}
+                          height={140}
+                          valueFormat={(n) => (meta.money ? currency(Math.round(n), true) : num(n))}
+                        />
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
@@ -329,7 +455,114 @@ export default function Reporting() {
       </div>
 
       {creating && <ReportModal onClose={() => setCreating(false)} />}
+      {addingWidget && <AddWidgetModal onClose={() => setAddingWidget(false)} />}
     </div>
+  );
+}
+
+function AddWidgetModal({ onClose }: { onClose: () => void }) {
+  const { dispatch } = useStore();
+  const [title, setTitle] = useState('');
+  const [metric, setMetric] = useState<ReportMetric>('revenue');
+  const [chart, setChart] = useState<DashboardChart>('stat');
+  const [rangeDays, setRangeDays] = useState<ReportRange>(30);
+
+  const canSave = title.trim().length > 0;
+
+  const save = () => {
+    if (!canSave) return;
+    dispatch({
+      type: 'widget/add',
+      widget: {
+        id: uid('dw'),
+        title: title.trim(),
+        metric,
+        chart,
+        rangeDays,
+        createdAt: new Date().toISOString(),
+      },
+    });
+    onClose();
+  };
+
+  return (
+    <Modal
+      title="Add dashboard widget"
+      onClose={onClose}
+      footer={
+        <>
+          <button className="btn" type="button" onClick={onClose}>
+            Cancel
+          </button>
+          <button className="btn btn--primary" type="button" disabled={!canSave} onClick={save}>
+            Add widget
+          </button>
+        </>
+      }
+    >
+      <div className="field">
+        <label htmlFor="widget-title">Widget title</label>
+        <input
+          id="widget-title"
+          className="input"
+          autoFocus
+          placeholder="Weekly revenue"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
+      </div>
+      <div className="grid grid--2" style={{ marginTop: 12 }}>
+        <div className="field">
+          <label htmlFor="widget-metric">Metric</label>
+          <select
+            id="widget-metric"
+            className="select"
+            value={metric}
+            onChange={(e) => setMetric(e.target.value as ReportMetric)}
+          >
+            {(Object.keys(METRIC_META) as ReportMetric[]).map((m) => (
+              <option key={m} value={m}>
+                {METRIC_META[m].label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor="widget-range">Range</label>
+          <select
+            id="widget-range"
+            className="select"
+            value={rangeDays}
+            onChange={(e) => setRangeDays(Number(e.target.value) as ReportRange)}
+          >
+            {RANGE_OPTIONS.map((r) => (
+              <option key={r} value={r}>
+                Last {r} days
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div className="field" style={{ marginTop: 12 }}>
+        <label>Visualization</label>
+        <div className="segmented" style={{ width: '100%' }}>
+          {(['stat', 'line', 'bar'] as DashboardChart[]).map((c) => (
+            <button
+              key={c}
+              type="button"
+              className={chart === c ? 'is-active' : ''}
+              onClick={() => setChart(c)}
+            >
+              {CHART_META[c]}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="hint" style={{ marginTop: 10 }}>
+        Trend and bar widgets split the range into six equal periods and recompute from live invoices,
+        opportunities and contacts.
+      </div>
+    </Modal>
   );
 }
 

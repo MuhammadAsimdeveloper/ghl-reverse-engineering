@@ -117,6 +117,11 @@ export default function Snippets() {
                   <tr key={snippet.id}>
                     <td>
                       <div style={{ fontSize: 13, fontWeight: 550 }}>{snippet.label}</div>
+                      {snippet.subject && (
+                        <div className="cell-sub" style={{ fontStyle: 'italic' }}>
+                          {snippet.subject}
+                        </div>
+                      )}
                       <div className="cell-sub" style={{ maxWidth: 560, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {snippet.body}
                       </div>
@@ -191,6 +196,7 @@ function SnippetModal({
   onSave: (draft: Omit<Snippet, 'id' | 'uses'>) => void;
 }) {
   const [label, setLabel] = useState(snippet?.label ?? '');
+  const [subject, setSubject] = useState(snippet?.subject ?? '');
   const [body, setBody] = useState(snippet?.body ?? '');
   const [channel, setChannel] = useState<Channel | ''>(snippet?.channel ?? '');
 
@@ -200,6 +206,7 @@ function SnippetModal({
     if (!canSave) return;
     onSave({
       label: label.trim(),
+      subject: subject.trim() ? subject.trim() : undefined,
       body: body.trim(),
       channel: channel === '' ? undefined : channel,
     });
@@ -248,6 +255,17 @@ function SnippetModal({
             ))}
           </select>
         </div>
+      </div>
+      <div className="field" style={{ marginTop: 12 }}>
+        <label htmlFor="snippet-subject">Email subject (optional)</label>
+        <input
+          id="snippet-subject"
+          className="input"
+          placeholder="Following up from today"
+          value={subject}
+          onChange={(e) => setSubject(e.target.value)}
+        />
+        <div className="hint">Filled into the subject line when this snippet is inserted into an email thread.</div>
       </div>
       <div className="field">
         <label htmlFor="snippet-body">Body</label>
