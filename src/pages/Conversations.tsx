@@ -4,6 +4,8 @@ import { Icon } from '../components/Icon';
 import { Avatar, Badge, EmptyState } from '../components/ui';
 import { CHANNEL_META, useStore } from '../lib/store';
 import { relative, timeOf } from '../lib/format';
+import { resolveMerge } from '../lib/merge';
+import type { Snippet } from '../lib/types';
 
 const FILTERS = ['all', 'unread', 'starred'] as const;
 type Filter = (typeof FILTERS)[number];
@@ -14,6 +16,7 @@ export default function Conversations() {
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(state.conversations[0]?.id ?? null);
   const [draft, setDraft] = useState('');
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const contactOf = (id: string) => state.contacts.find((c) => c.id === id);
 
@@ -49,6 +52,18 @@ export default function Conversations() {
     dispatch({ type: 'conversation/send', id: selected.id, body: draft.trim() });
     setDraft('');
   };
+
+  const insertSnippet = (snippet: Snippet) => {
+    if (!selected) return;
+    const text = resolveMerge(snippet.body, selectedContact, state.customValues);
+    setDraft((prev) => (prev.trim() ? `${prev.trimEnd()} ${text}` : text));
+    dispatch({ type: 'snippet/use', id: snippet.id });
+    setPickerOpen(false);
+  };
+
+  const snippetsForChannel = selected
+    ? state.snippets.filter((s) => !s.channel || s.channel === selected.channel)
+    : [];
 
   return (
     <div className="content content--flush">
@@ -174,9 +189,52 @@ export default function Conversations() {
             </div>
 
             <div className="thread__composer">
-              <button className="icon-btn" aria-label="Attach">
-                <Icon name="link" size={17} />
-              </button>
+              <div className="composer__snippets">
+                <button
+                  className="icon-btn"
+                  aria-label="Insert snippet"
+                  aria-expanded={pickerOpen}
+                  onClick={() => setPickerOpen((v) => !v)}
+                >
+                  <Icon name="zap" size={17} />
+                </button>
+                {pickerOpen && (
+                  <>
+                    <div className="popover-backdrop" onClick={() => setPickerOpen(false)} />
+                    <div className="popover" role="menu" aria-label="Snippets">
+                      <div className="popover__head">Insert a snippet</div>
+                      {snippetsForChannel.length === 0 ? (
+                        <div className="hint" style={{ padding: '6px 10px 10px' }}>
+                          No snippets for this channel yet.
+                        </div>
+                      ) : (
+                        snippetsForChannel.map((snippet) => (
+                          <button
+                            key={snippet.id}
+                            type="button"
+                            role="menuitem"
+                            className="popover__item"
+                            onClick={() => insertSnippet(snippet)}
+                          >
+                            <span className="popover__label">
+                              {snippet.label}
+                              {snippet.channel && (
+                                <Badge>{CHANNEL_META[snippet.channel].label}</Badge>
+                              )}
+                            </span>
+                            <span className="popover__body">
+                              {resolveMerge(snippet.body, selectedContact, state.customValues)}
+                            </span>
+                          </button>
+                        ))
+                      )}
+                      <Link className="popover__manage" to="/snippets" onClick={() => setPickerOpen(false)}>
+                        Manage snippets
+                      </Link>
+                    </div>
+                  </>
+                )}
+              </div>
               <textarea
                 placeholder={`Reply via ${CHANNEL_META[selected.channel].label}…`}
                 value={draft}

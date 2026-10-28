@@ -34,8 +34,9 @@ npm run typecheck  # types only
 | Module | Route | What it demonstrates |
 | --- | --- | --- |
 | Dashboard | `/` | KPI cards, revenue line chart, pipeline donut, today's agenda |
-| Conversations | `/conversations` | Two-pane inbox, channel filters, threads, message composer |
-| Calendars | `/calendars` | Month grid, per-calendar visibility, booking modal |
+| Conversations | `/conversations` | Two-pane inbox, channel filters, threads, message composer, snippet picker |
+| Snippets | `/snippets` | Saved replies with channel targeting, merge tokens and usage counts |
+| Calendars | `/calendars` | Month grid, weekly hours per calendar, round-robin assignees, overlap blocking |
 | Contacts | `/contacts` | Searchable/filterable table, tags, bulk tag/status/delete, create + edit |
 | Contact detail | `/contacts/:id` | Profile tabs, notes, tasks, deals, invoices, delete flow |
 | Tasks | `/tasks` | Overdue/today/upcoming groups, completion toggle, priorities, assignees |
@@ -68,6 +69,7 @@ src/
     types.ts     # the domain model — one interface per entity
     seed.ts      # deterministic demo data (dates are relative to today)
     store.tsx    # useReducer store + localStorage persistence + action union
+    merge.ts     # merge-token resolution for contacts and custom values
     format.ts    # currency/date/percentage helpers
   components/
     AppShell.tsx # sidebar navigation, top bar, global search, notifications
@@ -85,8 +87,9 @@ src/
 
 There is no backend. `StoreProvider` holds the whole workspace in a `useReducer`, and every
 action returns a new immutable state. The state is mirrored into `localStorage` under
-`ghl-lite.workspace.v4` after each change, so your edits survive a refresh. **Settings → Workspace
-data → Reset** restores the seed.
+`ghl-lite.workspace.v5` after each change, so your edits survive a refresh. **Settings → Workspace
+data → Reset** restores the seed. A derived audit log records every logged mutation, and
+snippets resolve `{{contact.*}}` and `{{custom_values.*}}` tokens when inserted into a reply.
 
 To add a field or entity:
 

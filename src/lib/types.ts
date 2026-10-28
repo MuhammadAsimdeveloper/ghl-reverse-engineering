@@ -72,10 +72,21 @@ export interface Conversation {
   messages: Message[];
 }
 
+export interface AvailabilityWindow {
+  /** 0 = Sunday … 6 = Saturday */
+  weekday: number;
+  /** 24-hour "HH:MM" */
+  start: string;
+  end: string;
+}
+
 export interface CalendarDef {
   id: ID;
   name: string;
   color: string;
+  availability: AvailabilityWindow[];
+  /** New bookings rotate to the team member with the fewest upcoming appointments. */
+  roundRobin: boolean;
 }
 
 export type AppointmentStatus = 'confirmed' | 'pending' | 'cancelled';
@@ -89,6 +100,16 @@ export interface Appointment {
   start: string;
   durationMin: number;
   status: AppointmentStatus;
+  assignee?: string;
+}
+
+export interface Snippet {
+  id: ID;
+  label: string;
+  body: string;
+  /** Restricted to one channel, or undefined for every channel. */
+  channel?: Channel;
+  uses: number;
 }
 
 export type InvoiceStatus = 'paid' | 'sent' | 'draft' | 'overdue';
@@ -450,6 +471,7 @@ export interface WorkspaceState {
   coupons: Coupon[];
   customValues: CustomValue[];
   auditLog: AuditEntry[];
+  snippets: Snippet[];
   campaigns: Campaign[];
   posts: SocialPost[];
   sites: Site[];

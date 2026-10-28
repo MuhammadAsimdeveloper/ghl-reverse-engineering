@@ -2,15 +2,55 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Icon } from '../components/Icon';
 import { Modal } from '../components/Modal';
-import { Avatar, Badge, EmptyState, PageHeader, StatusBadge } from '../components/ui';
+import { Avatar, Badge, EmptyState, PageHeader, StatusBadge, Switch } from '../components/ui';
 import { useStore, uid } from '../lib/store';
 import { monthMatrix, sameDay, timeOf, toDateTimeInput } from '../lib/format';
+import type { AvailabilityWindow, CalendarDef, WorkspaceState } from '../lib/types';
+
+const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+const toMinutes = (hhmm: string) => {
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+};
+
+function roundRobinAssignee(state: WorkspaceState, calendarId: string): string {
+  if (state.team.length === 0) return '';
+  const counts = new Map(state.team.map((m) => [m.name, 0]));
+  state.appointments
+    .filter(
+      (a) =>
+        a.calendarId === calendarId &&
+        a.status !== 'cancelled' &&
+        new Date(a.start).getTime() >= Date.now(),
+    )
+    .forEach((a) => {
+      if (a.assignee && counts.has(a.assignee)) {
+        counts.set(a.assignee, (counts.get(a.assignee) ?? 0) + 1);
+      }
+    });
+  let best = state.team[0].name;
+  let bestCount = Number.POSITIVE_INFINITY;
+  state.team.forEach((member) => {
+    const count = counts.get(member.name) ?? 0;
+    if (count < bestCount) {
+      bestCount = count;
+      best = member.name;
+    }
+  });
+  return best;
+}
+
+function windowFor(calendar: CalendarDef | undefined, date: Date) {
+  return calendar?.availability.find((w) => w.weekday === date.getDay());
+}
 
 export default function Calendars() {
   const { state, dispatch } = useStore();
   const [cursor, setCursor] = useState(() => new Date());
   const [hidden, setHidden] = useState<string[]>([]);
   const [creating, setCreating] = useState<string | null>(null); // ISO date when creating
+  const [managing, setManaging] = useState<string | null>(null); // calendar id being edited
 
   const visible = state.appointments.filter(
     (a) => !hidden.includes(a.calendarId) && a.status !== 'cancelled',
@@ -122,19 +162,24 @@ export default function Calendars() {
               {state.calendars.map((cal) => {
                 const on = !hidden.includes(cal.id);
                 return (
-                  <label className="list-row" key={cal.id} style={{ cursor: 'pointer' }}>
-                    <span style={{ width: 9, height: 9, borderRadius: 3, background: cal.color }} />
-                    <span style={{ fontSize: 13, fontWeight: 550, flex: 1 }}>{cal.name}</span>
+                  <div className="list-row" key={cal.id}>
                     <input
                       type="checkbox"
                       checked={on}
+                      aria-label={`Show ${cal.name}`}
                       onChange={() =>
                         setHidden((prev) =>
                           on ? [...prev, cal.id] : prev.filter((id) => id !== cal.id),
                         )
                       }
                     />
-                  </label>
+                    <span style={{ width: 9, height: 9, borderRadius: 3, background: cal.color }} />
+                    <span style={{ fontSize: 13, fontWeight: 550, flex: 1 }}>{cal.name}</span>
+                    {cal.roundRobin && <Badge tone="violet">Round-robin</Badge>}
+                    <button className="btn btn--sm" onClick={() => setManaging(cal.id)}>
+                      Hours
+                    </button>
+                  </div>
                 );
               })}
             </div>
@@ -161,6 +206,7 @@ export default function Calendars() {
                         <div className="cell-sub">
                           {new Date(a.start).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} ·{' '}
                           {timeOf(a.start)}
+                          {a.assignee ? ` · ${a.assignee}` : ''}
                         </div>
                         {contact && (
                           <Link
@@ -184,6 +230,13 @@ export default function Calendars() {
       </div>
 
       {creating && <NewAppointment defaultDate={creating} onClose={() => setCreating(null)} dispatch={dispatch} />}
+      {managing && calendarOf(managing) && (
+        <AvailabilityModal
+          calendar={calendarOf(managing)!}
+          onClose={() => setManaging(null)}
+          dispatch={dispatch}
+        />
+      )}
     </div>
   );
 }
@@ -206,9 +259,36 @@ function NewAppointment({
   const [calendarId, setCalendarId] = useState(state.calendars[0]?.id ?? '');
   const [when, setWhen] = useState(toDateTimeInput(start));
   const [duration, setDuration] = useState(30);
+  const [assigneeOverride, setAssigneeOverride] = useState<string | null>(null);
+
+  const calendar = state.calendars.find((c) => c.id === calendarId);
+  const suggested = calendar?.roundRobin ? roundRobinAssignee(state, calendarId) : state.team[0]?.name ?? '';
+  const assignee = assigneeOverride ?? suggested;
+
+  const startAt = new Date(when);
+  const validDate = !Number.isNaN(startAt.getTime());
+  const endAt = new Date(startAt.getTime() + duration * 60_000);
+
+  const conflicts = validDate
+    ? state.appointments.filter((a) => {
+        if (a.calendarId !== calendarId || a.status === 'cancelled') return false;
+        const aStart = new Date(a.start);
+        const aEnd = new Date(aStart.getTime() + a.durationMin * 60_000);
+        return aStart < endAt && aEnd > startAt;
+      })
+    : [];
+
+  const hours = validDate ? windowFor(calendar, startAt) : undefined;
+  const startMin = startAt.getHours() * 60 + startAt.getMinutes();
+  const outsideHours = Boolean(
+    validDate &&
+      calendar &&
+      calendar.availability.length > 0 &&
+      (!hours || startMin < toMinutes(hours.start) || startMin + duration > toMinutes(hours.end)),
+  );
 
   const submit = () => {
-    if (!title.trim() || !contactId) return;
+    if (!title.trim() || !contactId || !validDate || conflicts.length > 0) return;
     dispatch({
       type: 'appointment/add',
       appointment: {
@@ -216,9 +296,10 @@ function NewAppointment({
         calendarId,
         contactId,
         title: title.trim(),
-        start: new Date(when).toISOString(),
+        start: startAt.toISOString(),
         durationMin: duration,
         status: 'confirmed',
+        assignee: assignee || undefined,
       },
     });
     onClose();
@@ -233,7 +314,7 @@ function NewAppointment({
           <button className="btn" onClick={onClose}>
             Cancel
           </button>
-          <button className="btn btn--primary" onClick={submit}>
+          <button className="btn btn--primary" onClick={submit} disabled={!validDate || conflicts.length > 0}>
             Book appointment
           </button>
         </>
@@ -278,6 +359,136 @@ function NewAppointment({
       <div className="field">
         <label>Starts</label>
         <input className="input" type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} />
+      </div>
+      {state.team.length > 0 && (
+        <div className="field">
+          <label>Assignee</label>
+          <select className="select" value={assignee} onChange={(e) => setAssigneeOverride(e.target.value)}>
+            {state.team.map((m) => (
+              <option key={m.id} value={m.name}>
+                {m.name}
+                {calendar?.roundRobin && m.name === suggested ? ' · next in rotation' : ''}
+              </option>
+            ))}
+          </select>
+          {calendar?.roundRobin && (
+            <div className="hint">Round-robin picks the teammate with the fewest upcoming bookings.</div>
+          )}
+        </div>
+      )}
+      {conflicts.length > 0 && (
+        <div className="callout callout--danger">
+          Overlaps {conflicts[0].title} at {timeOf(conflicts[0].start)} on this calendar. Pick another time.
+        </div>
+      )}
+      {validDate && outsideHours && conflicts.length === 0 && (
+        <div className="callout callout--warn">
+          This time falls outside {calendar?.name} hours. You can still book it.
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+function AvailabilityModal({
+  calendar,
+  onClose,
+  dispatch,
+}: {
+  calendar: CalendarDef;
+  onClose: () => void;
+  dispatch: ReturnType<typeof useStore>['dispatch'];
+}) {
+  const [hours, setHours] = useState<AvailabilityWindow[]>(calendar.availability);
+  const [roundRobin, setRoundRobin] = useState(calendar.roundRobin);
+
+  const toggleDay = (weekday: number) => {
+    setHours((prev) =>
+      prev.some((w) => w.weekday === weekday)
+        ? prev.filter((w) => w.weekday !== weekday)
+        : [...prev, { weekday, start: '09:00', end: '17:00' }].sort((a, b) => a.weekday - b.weekday),
+    );
+  };
+
+  const patchDay = (weekday: number, patch: Partial<AvailabilityWindow>) =>
+    setHours((prev) => prev.map((w) => (w.weekday === weekday ? { ...w, ...patch } : w)));
+
+  const invalid = hours.some((w) => toMinutes(w.end) <= toMinutes(w.start));
+
+  const save = () => {
+    if (invalid) return;
+    dispatch({ type: 'calendar/update', id: calendar.id, patch: { availability: hours, roundRobin } });
+    onClose();
+  };
+
+  return (
+    <Modal
+      title={`${calendar.name} hours`}
+      onClose={onClose}
+      footer={
+        <>
+          <button className="btn" onClick={onClose}>
+            Cancel
+          </button>
+          <button className="btn btn--primary" onClick={save} disabled={invalid}>
+            Save hours
+          </button>
+        </>
+      }
+    >
+      <div className="field">
+        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
+          <div>
+            <label style={{ marginBottom: 2 }}>Round-robin assignment</label>
+            <div className="hint">New bookings go to the teammate with the fewest upcoming appointments.</div>
+          </div>
+          <Switch on={roundRobin} onChange={() => setRoundRobin((v) => !v)} label="Round-robin assignment" />
+        </div>
+      </div>
+      <div className="field">
+        <label>Weekly availability</label>
+        <div>
+          {WEEKDAY_LABELS.map((label, weekday) => {
+            const win = hours.find((w) => w.weekday === weekday);
+            return (
+              <div className="list-row" key={label} style={{ paddingLeft: 0, paddingRight: 0 }}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(win)}
+                  aria-label={`Open on ${label}`}
+                  onChange={() => toggleDay(weekday)}
+                />
+                <span style={{ width: 34, fontSize: 12.5, fontWeight: 550 }}>{label}</span>
+                {win ? (
+                  <span className="row" style={{ gap: 6, flex: 1 }}>
+                    <input
+                      className="input"
+                      type="time"
+                      value={win.start}
+                      aria-label={`${label} start`}
+                      onChange={(e) => patchDay(weekday, { start: e.target.value })}
+                      style={{ width: 116 }}
+                    />
+                    <span className="hint">to</span>
+                    <input
+                      className="input"
+                      type="time"
+                      value={win.end}
+                      aria-label={`${label} end`}
+                      onChange={(e) => patchDay(weekday, { end: e.target.value })}
+                      style={{ width: 116 }}
+                    />
+                  </span>
+                ) : (
+                  <span className="hint" style={{ flex: 1 }}>
+                    Closed
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        {invalid && <div className="hint" style={{ color: 'var(--red)' }}>End time must be after the start time.</div>}
       </div>
     </Modal>
   );

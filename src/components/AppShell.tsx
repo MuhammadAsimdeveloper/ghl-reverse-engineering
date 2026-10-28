@@ -72,7 +72,10 @@ function Sidebar({ onNavigate }: { onNavigate: () => void }) {
     },
     {
       label: 'Client Experience',
-      items: [{ to: '/memberships', label: 'Memberships', icon: 'book' }],
+      items: [
+        { to: '/memberships', label: 'Memberships', icon: 'book' },
+        { to: '/snippets', label: 'Snippets', icon: 'message' },
+      ],
     },
     {
       label: 'Workspace',
@@ -314,6 +317,7 @@ function TopBar({ onOpenNav }: { onOpenNav: () => void }) {
   const titles: Record<string, string> = {
     '/': 'Dashboard',
     '/conversations': 'Conversations',
+    '/snippets': 'Snippets',
     '/calendars': 'Calendars',
     '/contacts': 'Contacts',
     '/tasks': 'Tasks',

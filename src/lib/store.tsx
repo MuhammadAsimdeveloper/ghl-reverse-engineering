@@ -11,6 +11,7 @@ import { seed } from './seed';
 import type {
   Appointment,
   AuditEntry,
+  CalendarDef,
   Contact,
   ContractDoc,
   Coupon,
@@ -24,6 +25,7 @@ import type {
   Product,
   QrCode,
   SmartList,
+  Snippet,
   SocialPost,
   Task,
   TeamMember,
@@ -32,7 +34,7 @@ import type {
   Workflow,
 } from './types';
 
-const STORAGE_KEY = 'ghl-lite.workspace.v4';
+const STORAGE_KEY = 'ghl-lite.workspace.v5';
 
 export function uid(prefix = 'id'): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
@@ -55,6 +57,7 @@ export type Action =
   | { type: 'appointment/add'; appointment: Appointment }
   | { type: 'appointment/status'; id: string; status: Appointment['status'] }
   | { type: 'appointment/delete'; id: string }
+  | { type: 'calendar/update'; id: string; patch: Partial<CalendarDef> }
   | { type: 'invoice/add'; invoice: Invoice }
   | { type: 'invoice/status'; id: string; status: Invoice['status'] }
   | { type: 'product/toggle'; id: string }
@@ -73,6 +76,10 @@ export type Action =
   | { type: 'customValue/add'; customValue: CustomValue }
   | { type: 'customValue/update'; id: string; patch: Partial<CustomValue> }
   | { type: 'customValue/delete'; id: string }
+  | { type: 'snippet/add'; snippet: Snippet }
+  | { type: 'snippet/update'; id: string; patch: Partial<Snippet> }
+  | { type: 'snippet/delete'; id: string }
+  | { type: 'snippet/use'; id: string }
   | { type: 'audit/clear' }
   | { type: 'post/add'; post: SocialPost }
   | { type: 'post/status'; id: string; status: SocialPost['status'] }
@@ -227,6 +234,12 @@ function applyAction(state: WorkspaceState, action: Action): WorkspaceState {
     case 'appointment/delete':
       return { ...state, appointments: state.appointments.filter((a) => a.id !== action.id) };
 
+    case 'calendar/update':
+      return {
+        ...state,
+        calendars: state.calendars.map((c) => (c.id === action.id ? { ...c, ...action.patch } : c)),
+      };
+
     case 'invoice/add':
       return { ...state, invoices: [action.invoice, ...state.invoices] };
 
@@ -313,6 +326,24 @@ function applyAction(state: WorkspaceState, action: Action): WorkspaceState {
 
     case 'customValue/delete':
       return { ...state, customValues: state.customValues.filter((c) => c.id !== action.id) };
+
+    case 'snippet/add':
+      return { ...state, snippets: [action.snippet, ...state.snippets] };
+
+    case 'snippet/update':
+      return {
+        ...state,
+        snippets: state.snippets.map((s) => (s.id === action.id ? { ...s, ...action.patch } : s)),
+      };
+
+    case 'snippet/delete':
+      return { ...state, snippets: state.snippets.filter((s) => s.id !== action.id) };
+
+    case 'snippet/use':
+      return {
+        ...state,
+        snippets: state.snippets.map((s) => (s.id === action.id ? { ...s, uses: s.uses + 1 } : s)),
+      };
 
     case 'audit/clear':
       return { ...state, auditLog: [] };
@@ -560,6 +591,16 @@ function auditMeta(
         entity: 'Calendar',
         detail: byId(state.appointments, action.id)?.title,
       };
+    case 'calendar/update': {
+      const calendar = byId(state.calendars, action.id);
+      return {
+        action: 'Calendar booking rules updated',
+        entity: 'Calendar',
+        detail: calendar
+          ? `${calendar.name}${action.patch.roundRobin !== undefined ? (action.patch.roundRobin ? ' · round-robin on' : ' · round-robin off') : ''}`
+          : undefined,
+      };
+    }
 
     case 'invoice/add':
       return { action: 'Invoice created', entity: 'Invoice', detail: action.invoice.number };
@@ -649,6 +690,21 @@ function auditMeta(
         action: 'Custom value deleted',
         entity: 'Custom Value',
         detail: byId(state.customValues, action.id)?.name,
+      };
+
+    case 'snippet/add':
+      return { action: 'Snippet created', entity: 'Snippet', detail: action.snippet.label };
+    case 'snippet/update':
+      return {
+        action: 'Snippet updated',
+        entity: 'Snippet',
+        detail: action.patch.label ?? byId(state.snippets, action.id)?.label,
+      };
+    case 'snippet/delete':
+      return {
+        action: 'Snippet deleted',
+        entity: 'Snippet',
+        detail: byId(state.snippets, action.id)?.label,
       };
 
     case 'document/add':

@@ -2,6 +2,7 @@ import { Route, Routes } from 'react-router-dom';
 import { AppShell } from './components/AppShell';
 import Dashboard from './pages/Dashboard';
 import Conversations from './pages/Conversations';
+import Snippets from './pages/Snippets';
 import Calendars from './pages/Calendars';
 import Contacts from './pages/Contacts';
 import ContactDetail from './pages/ContactDetail';
@@ -43,6 +44,7 @@ export default function App() {
       <Route element={<AppShell />}>
         <Route index element={<Dashboard />} />
         <Route path="conversations" element={<Conversations />} />
+        <Route path="snippets" element={<Snippets />} />
         <Route path="calendars" element={<Calendars />} />
         <Route path="contacts" element={<Contacts />} />
         <Route path="contacts/:id" element={<ContactDetail />} />

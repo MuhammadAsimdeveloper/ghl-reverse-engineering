@@ -2,16 +2,9 @@ import { useState } from 'react';
 import { Icon } from '../components/Icon';
 import { Modal } from '../components/Modal';
 import { EmptyState, PageHeader } from '../components/ui';
+import { customValueToken } from '../lib/merge';
 import { uid, useStore } from '../lib/store';
 import type { CustomValue } from '../lib/types';
-
-function tokenFor(name: string): string {
-  const slug = name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
-  return `{{custom_values.${slug || 'value'}}}`;
-}
 
 export default function CustomValues() {
   const { state, dispatch } = useStore();
@@ -21,7 +14,7 @@ export default function CustomValues() {
 
   const copy = async (value: CustomValue) => {
     try {
-      await navigator.clipboard.writeText(tokenFor(value.name));
+      await navigator.clipboard.writeText(customValueToken(value.name));
       setCopied(value.id);
       window.setTimeout(() => setCopied((current) => (current === value.id ? null : current)), 1600);
     } catch {
@@ -78,7 +71,7 @@ export default function CustomValues() {
                     <td>
                       <span className="row" style={{ gap: 6 }}>
                         <span className="mono-cell" style={{ color: 'var(--text-2)' }}>
-                          {tokenFor(value.name)}
+                          {customValueToken(value.name)}
                         </span>
                         <button
                           type="button"
@@ -184,7 +177,7 @@ function CustomValueModal({
           onChange={(e) => setName(e.target.value)}
         />
         <div className="cell-sub" style={{ marginTop: 4 }}>
-          Token: {tokenFor(name || 'value')}
+          Token: {customValueToken(name || 'value')}
         </div>
       </div>
       <div className="field">

@@ -14,6 +14,10 @@ function minutesAgo(n: number): string {
   return new Date(now.getTime() - n * 60_000).toISOString();
 }
 
+function weekdays(start: string, end: string, days = [1, 2, 3, 4, 5]) {
+  return days.map((weekday) => ({ weekday, start, end }));
+}
+
 export const seed: WorkspaceState = {
   contacts: [
     {
@@ -313,21 +317,21 @@ export const seed: WorkspaceState = {
   ],
 
   calendars: [
-    { id: 'cal1', name: 'Discovery Calls', color: '#6366f1' },
-    { id: 'cal2', name: 'Client Onboarding', color: '#10b981' },
-    { id: 'cal3', name: 'Team Standup', color: '#f59e0b' },
+    { id: 'cal1', name: 'Discovery Calls', color: '#6366f1', availability: weekdays('09:00', '17:00'), roundRobin: true },
+    { id: 'cal2', name: 'Client Onboarding', color: '#10b981', availability: weekdays('10:00', '16:00', [1, 2, 3, 4]), roundRobin: false },
+    { id: 'cal3', name: 'Team Standup', color: '#f59e0b', availability: weekdays('09:00', '09:30'), roundRobin: false },
   ],
 
   appointments: [
-    { id: 'a1', calendarId: 'cal1', contactId: 'c5', title: 'Demo — Lotus Flow', start: day(0, 15), durationMin: 45, status: 'confirmed' },
-    { id: 'a2', calendarId: 'cal1', contactId: 'c1', title: 'Discovery — Northwind', start: day(1, 11), durationMin: 30, status: 'pending' },
-    { id: 'a3', calendarId: 'cal1', contactId: 'c10', title: 'Enterprise walkthrough — GulfTech', start: day(2, 9, 30), durationMin: 60, status: 'confirmed' },
-    { id: 'a4', calendarId: 'cal3', contactId: 'c2', title: 'Weekly standup', start: day(0, 9), durationMin: 15, status: 'confirmed' },
-    { id: 'a5', calendarId: 'cal2', contactId: 'c8', title: 'Onboarding — Parcelworks', start: day(3, 13), durationMin: 60, status: 'confirmed' },
-    { id: 'a6', calendarId: 'cal1', contactId: 'c7', title: 'Discovery — Atelier Rossi', start: day(-2, 14), durationMin: 30, status: 'cancelled' },
-    { id: 'a7', calendarId: 'cal3', contactId: 'c12', title: 'Quarterly review', start: day(5, 16), durationMin: 45, status: 'confirmed' },
-    { id: 'a8', calendarId: 'cal2', contactId: 'c2', title: 'Setup session', start: day(-3, 10), durationMin: 60, status: 'confirmed' },
-    { id: 'a9', calendarId: 'cal1', contactId: 'c9', title: 'Discovery — Brightpath', start: day(4, 12), durationMin: 30, status: 'pending' },
+    { id: 'a1', calendarId: 'cal1', contactId: 'c5', title: 'Demo — Lotus Flow', start: day(0, 15), durationMin: 45, status: 'confirmed', assignee: 'Priya N.' },
+    { id: 'a2', calendarId: 'cal1', contactId: 'c1', title: 'Discovery — Northwind', start: day(1, 11), durationMin: 30, status: 'pending', assignee: 'Asim R.' },
+    { id: 'a3', calendarId: 'cal1', contactId: 'c10', title: 'Enterprise walkthrough — GulfTech', start: day(2, 9, 30), durationMin: 60, status: 'confirmed', assignee: 'Asim R.' },
+    { id: 'a4', calendarId: 'cal3', contactId: 'c2', title: 'Weekly standup', start: day(0, 9), durationMin: 15, status: 'confirmed', assignee: 'Jonah T.' },
+    { id: 'a5', calendarId: 'cal2', contactId: 'c8', title: 'Onboarding — Parcelworks', start: day(3, 13), durationMin: 60, status: 'confirmed', assignee: 'Maya L.' },
+    { id: 'a6', calendarId: 'cal1', contactId: 'c7', title: 'Discovery — Atelier Rossi', start: day(-2, 14), durationMin: 30, status: 'cancelled', assignee: 'Priya N.' },
+    { id: 'a7', calendarId: 'cal3', contactId: 'c12', title: 'Quarterly review', start: day(5, 16), durationMin: 45, status: 'confirmed', assignee: 'Asim R.' },
+    { id: 'a8', calendarId: 'cal2', contactId: 'c2', title: 'Setup session', start: day(-3, 10), durationMin: 60, status: 'confirmed', assignee: 'Maya L.' },
+    { id: 'a9', calendarId: 'cal1', contactId: 'c9', title: 'Discovery — Brightpath', start: day(4, 12), durationMin: 30, status: 'pending', assignee: 'Priya N.' },
   ],
 
   invoices: [
@@ -1042,6 +1046,49 @@ export const seed: WorkspaceState = {
       action: 'Integration connected',
       entity: 'Integration',
       detail: 'Stripe',
+    },
+  ],
+
+  snippets: [
+    {
+      id: 'sn1',
+      label: 'Discovery follow-up',
+      body: 'Hi {{contact.first_name}}, thanks for the call today. You can grab a time on my calendar here: {{custom_values.booking_link}}',
+      channel: 'email',
+      uses: 34,
+    },
+    {
+      id: 'sn2',
+      label: 'Pricing overview',
+      body: 'Hi {{contact.first_name}}, our Growth package is $2,400 one-time and includes onboarding. Happy to walk you through it on a quick call.',
+      channel: 'email',
+      uses: 21,
+    },
+    {
+      id: 'sn3',
+      label: 'Onboarding next steps',
+      body: 'Welcome aboard, {{contact.first_name}}! Next step is the setup session — I have sent a calendar invite for your team.',
+      uses: 17,
+    },
+    {
+      id: 'sn4',
+      label: 'Payment reminder',
+      body: 'Hi {{contact.first_name}}, a friendly reminder that your invoice is due. Let me know if you need the payment link resent.',
+      channel: 'email',
+      uses: 28,
+    },
+    {
+      id: 'sn5',
+      label: 'Webinar reminder (SMS)',
+      body: 'Hi {{contact.first_name}}, the webinar starts in one hour. Here is the join link: {{custom_values.booking_link}}',
+      channel: 'sms',
+      uses: 12,
+    },
+    {
+      id: 'sn6',
+      label: 'Review thank-you',
+      body: 'Thanks for the kind words, {{contact.first_name}}! It means a lot to the team at {{custom_values.business_name}}.',
+      uses: 9,
     },
   ],
 
