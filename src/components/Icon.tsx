@@ -143,6 +143,18 @@ const paths: Record<string, ReactNode> = {
   ),
   link: <path d="M10 13a4 4 0 0 0 5.7 0l2.6-2.6a4 4 0 0 0-5.7-5.7L11.5 6M14 11a4 4 0 0 0-5.7 0l-2.6 2.6a4 4 0 0 0 5.7 5.7l1.1-1.1" />,
   play: <path d="M7 4.5v15l13-7.5Z" />,
+  pause: (
+    <>
+      <rect x="7" y="4" width="3.5" height="16" rx="1" />
+      <rect x="13.5" y="4" width="3.5" height="16" rx="1" />
+    </>
+  ),
+  building: (
+    <>
+      <rect x="4" y="3" width="12" height="18" rx="1.5" />
+      <path d="M16 9h3a1 1 0 0 1 1 1v11M7.5 7h5M7.5 11h5M7.5 15h5M7.5 19h5" />
+    </>
+  ),
   eye: (
     <>
       <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />

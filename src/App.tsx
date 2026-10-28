@@ -3,6 +3,7 @@ import { AppShell } from './components/AppShell';
 import Dashboard from './pages/Dashboard';
 import Conversations from './pages/Conversations';
 import Snippets from './pages/Snippets';
+import SubAccounts from './pages/SubAccounts';
 import Calendars from './pages/Calendars';
 import Contacts from './pages/Contacts';
 import ContactDetail from './pages/ContactDetail';
@@ -78,6 +79,7 @@ export default function App() {
         <Route path="memberships" element={<Memberships />} />
         <Route path="reporting" element={<Reporting />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="sub-accounts" element={<SubAccounts />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

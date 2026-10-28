@@ -289,11 +289,19 @@ export interface Listing {
 
 export type CourseKind = 'course' | 'community';
 
+export interface Lesson {
+  id: ID;
+  title: string;
+  durationMin: number;
+  /** Days after enrollment before the lesson unlocks. 0 = immediately. */
+  dripDays: number;
+}
+
 export interface Course {
   id: ID;
   title: string;
   kind: CourseKind;
-  lessons: number;
+  curriculum: Lesson[];
   enrollments: number;
   price: number;
   published: boolean;
@@ -305,6 +313,30 @@ export interface Enrollment {
   contactId: ID;
   progress: number;
   startedAt: string;
+}
+
+export interface SaasPlan {
+  id: ID;
+  name: string;
+  /** Monthly price billed to the sub-account. */
+  price: number;
+  seats: number;
+  contactLimit: number;
+  smsCredits: number;
+}
+
+export type SubAccountStatus = 'active' | 'trial' | 'paused';
+
+export interface SubAccount {
+  id: ID;
+  name: string;
+  industry: string;
+  ownerEmail: string;
+  planId: ID;
+  status: SubAccountStatus;
+  seats: number;
+  contacts: number;
+  createdAt: string;
 }
 
 export type DocumentKind = 'proposal' | 'contract' | 'estimate';
@@ -481,6 +513,8 @@ export interface WorkspaceState {
   listings: Listing[];
   courses: Course[];
   enrollments: Enrollment[];
+  subAccounts: SubAccount[];
+  saasPlans: SaasPlan[];
   documents: ContractDoc[];
   media: MediaAsset[];
   prospects: Prospect[];

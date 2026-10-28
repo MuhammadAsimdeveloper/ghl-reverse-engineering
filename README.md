@@ -57,9 +57,10 @@ npm run typecheck  # types only
 | Websites | `/websites` | Site pages, per-page stats, preview modal |
 | Forms & Surveys | `/forms` | Type tabs, submission counts, live toggles |
 | Workflows | `/workflows` | Automation list + step-by-step flow diagram |
-| Memberships | `/memberships` | Course/community offers, enrollment progress, publish toggles |
+| Memberships | `/memberships` | Course/community offers, lesson curriculum with per-lesson drip days, unlock counts |
 | Reporting | `/reporting` | Multi-series charts, source breakdown, team table |
 | Settings | `/settings` | Business profile, team roles, custom fields, integrations, reset |
+| Sub-accounts | `/sub-accounts` | Agency-level client accounts, plan catalog, seat/contact limits, derived MRR |
 
 ## Architecture
 
@@ -87,9 +88,14 @@ src/
 
 There is no backend. `StoreProvider` holds the whole workspace in a `useReducer`, and every
 action returns a new immutable state. The state is mirrored into `localStorage` under
-`ghl-lite.workspace.v5` after each change, so your edits survive a refresh. **Settings → Workspace
+`ghl-lite.workspace.v6` after each change, so your edits survive a refresh. **Settings → Workspace
 data → Reset** restores the seed. A derived audit log records every logged mutation, and
 snippets resolve `{{contact.*}}` and `{{custom_values.*}}` tokens when inserted into a reply.
+
+Sub-account MRR is not stored: it is derived from the plan's price whenever the account status is
+`active`, so editing a plan in the sidebar immediately reprices every account on it. Drip content
+works the same way — a lesson's `dripDays` is compared with the days elapsed since the member
+enrolled, so an unlock count is always computed rather than persisted.
 
 To add a field or entity:
 

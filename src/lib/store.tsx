@@ -15,18 +15,22 @@ import type {
   Contact,
   ContractDoc,
   Coupon,
+  Course,
   CustomField,
   CustomValue,
   Invoice,
+  Lesson,
   MediaAsset,
   Note,
   Opportunity,
   PaymentLink,
   Product,
   QrCode,
+  SaasPlan,
   SmartList,
   Snippet,
   SocialPost,
+  SubAccount,
   Task,
   TeamMember,
   TriggerLink,
@@ -34,7 +38,7 @@ import type {
   Workflow,
 } from './types';
 
-const STORAGE_KEY = 'ghl-lite.workspace.v5';
+const STORAGE_KEY = 'ghl-lite.workspace.v6';
 
 export function uid(prefix = 'id'): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
@@ -92,6 +96,16 @@ export type Action =
   | { type: 'review/status'; id: string; status: 'new' | 'flagged' }
   | { type: 'listing/toggle'; id: string }
   | { type: 'course/toggle'; id: string }
+  | { type: 'course/add'; course: Course }
+  | { type: 'course/update'; id: string; patch: Partial<Course> }
+  | { type: 'lesson/add'; courseId: string; lesson: Lesson }
+  | { type: 'lesson/update'; courseId: string; id: string; patch: Partial<Lesson> }
+  | { type: 'lesson/delete'; courseId: string; id: string }
+  | { type: 'subAccount/add'; account: SubAccount }
+  | { type: 'subAccount/update'; id: string; patch: Partial<SubAccount> }
+  | { type: 'subAccount/status'; id: string; status: SubAccount['status'] }
+  | { type: 'subAccount/delete'; id: string }
+  | { type: 'plan/update'; id: string; patch: Partial<SaasPlan> }
   | { type: 'document/add'; document: ContractDoc }
   | { type: 'document/status'; id: string; status: ContractDoc['status'] }
   | { type: 'media/add'; asset: MediaAsset }
@@ -412,6 +426,76 @@ function applyAction(state: WorkspaceState, action: Action): WorkspaceState {
       return {
         ...state,
         courses: state.courses.map((c) => (c.id === action.id ? { ...c, published: !c.published } : c)),
+      };
+
+    case 'course/add':
+      return { ...state, courses: [action.course, ...state.courses] };
+
+    case 'course/update':
+      return {
+        ...state,
+        courses: state.courses.map((c) => (c.id === action.id ? { ...c, ...action.patch } : c)),
+      };
+
+    case 'lesson/add':
+      return {
+        ...state,
+        courses: state.courses.map((c) =>
+          c.id === action.courseId ? { ...c, curriculum: [...c.curriculum, action.lesson] } : c,
+        ),
+      };
+
+    case 'lesson/update':
+      return {
+        ...state,
+        courses: state.courses.map((c) =>
+          c.id === action.courseId
+            ? {
+                ...c,
+                curriculum: c.curriculum.map((l) =>
+                  l.id === action.id ? { ...l, ...action.patch } : l,
+                ),
+              }
+            : c,
+        ),
+      };
+
+    case 'lesson/delete':
+      return {
+        ...state,
+        courses: state.courses.map((c) =>
+          c.id === action.courseId
+            ? { ...c, curriculum: c.curriculum.filter((l) => l.id !== action.id) }
+            : c,
+        ),
+      };
+
+    case 'subAccount/add':
+      return { ...state, subAccounts: [action.account, ...state.subAccounts] };
+
+    case 'subAccount/update':
+      return {
+        ...state,
+        subAccounts: state.subAccounts.map((a) =>
+          a.id === action.id ? { ...a, ...action.patch } : a,
+        ),
+      };
+
+    case 'subAccount/status':
+      return {
+        ...state,
+        subAccounts: state.subAccounts.map((a) =>
+          a.id === action.id ? { ...a, status: action.status } : a,
+        ),
+      };
+
+    case 'subAccount/delete':
+      return { ...state, subAccounts: state.subAccounts.filter((a) => a.id !== action.id) };
+
+    case 'plan/update':
+      return {
+        ...state,
+        saasPlans: state.saasPlans.map((p) => (p.id === action.id ? { ...p, ...action.patch } : p)),
       };
 
     case 'document/add':
@@ -735,6 +819,69 @@ function auditMeta(
         detail: course?.title,
       };
     }
+    case 'course/add':
+      return { action: 'Offer created', entity: 'Membership', detail: action.course.title };
+    case 'course/update':
+      return {
+        action: 'Offer updated',
+        entity: 'Membership',
+        detail: action.patch.title ?? byId(state.courses, action.id)?.title,
+      };
+    case 'lesson/add': {
+      const course = byId(state.courses, action.courseId);
+      return {
+        action: 'Lesson added',
+        entity: 'Membership',
+        detail: course ? `${course.title} · ${action.lesson.title}` : action.lesson.title,
+      };
+    }
+    case 'lesson/update': {
+      const course = byId(state.courses, action.courseId);
+      const lesson = course?.curriculum.find((l) => l.id === action.id);
+      return {
+        action: 'Lesson updated',
+        entity: 'Membership',
+        detail: course ? `${course.title} · ${action.patch.title ?? lesson?.title ?? ''}` : action.patch.title,
+      };
+    }
+    case 'lesson/delete': {
+      const course = byId(state.courses, action.courseId);
+      return {
+        action: 'Lesson removed',
+        entity: 'Membership',
+        detail: course
+          ? `${course.title} · ${course.curriculum.find((l) => l.id === action.id)?.title ?? ''}`
+          : undefined,
+      };
+    }
+    case 'subAccount/add':
+      return { action: 'Sub-account created', entity: 'Sub-account', detail: action.account.name };
+    case 'subAccount/update':
+      return {
+        action: 'Sub-account updated',
+        entity: 'Sub-account',
+        detail: action.patch.name ?? byId(state.subAccounts, action.id)?.name,
+      };
+    case 'subAccount/status': {
+      const account = byId(state.subAccounts, action.id);
+      return {
+        action: `Sub-account ${action.status}`,
+        entity: 'Sub-account',
+        detail: account?.name,
+      };
+    }
+    case 'subAccount/delete':
+      return {
+        action: 'Sub-account deleted',
+        entity: 'Sub-account',
+        detail: byId(state.subAccounts, action.id)?.name,
+      };
+    case 'plan/update':
+      return {
+        action: 'SaaS plan updated',
+        entity: 'SaaS plan',
+        detail: action.patch.name ?? byId(state.saasPlans, action.id)?.name,
+      };
     case 'blog/toggle': {
       const post = byId(state.blogs, action.id);
       return {

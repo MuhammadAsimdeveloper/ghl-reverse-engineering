@@ -78,6 +78,10 @@ function Sidebar({ onNavigate }: { onNavigate: () => void }) {
       ],
     },
     {
+      label: 'Agency',
+      items: [{ to: '/sub-accounts', label: 'Sub-accounts', icon: 'building' }],
+    },
+    {
       label: 'Workspace',
       items: [
         { to: '/custom-values', label: 'Custom Values', icon: 'sliders' },
@@ -318,6 +322,7 @@ function TopBar({ onOpenNav }: { onOpenNav: () => void }) {
     '/': 'Dashboard',
     '/conversations': 'Conversations',
     '/snippets': 'Snippets',
+    '/sub-accounts': 'Sub-accounts',
     '/calendars': 'Calendars',
     '/contacts': 'Contacts',
     '/tasks': 'Tasks',
