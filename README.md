@@ -36,11 +36,14 @@ npm run typecheck  # types only
 | Dashboard | `/` | KPI cards, revenue line chart, pipeline donut, today's agenda |
 | Conversations | `/conversations` | Two-pane inbox, channel filters, threads, message composer |
 | Calendars | `/calendars` | Month grid, per-calendar visibility, booking modal |
-| Contacts | `/contacts` | Searchable/filterable table, tags, create + edit |
-| Contact detail | `/contacts/:id` | Profile tabs, notes, deals, invoices, delete flow |
+| Contacts | `/contacts` | Searchable/filterable table, tags, bulk tag/status/delete, create + edit |
+| Contact detail | `/contacts/:id` | Profile tabs, notes, tasks, deals, invoices, delete flow |
+| Tasks | `/tasks` | Overdue/today/upcoming groups, completion toggle, priorities, assignees |
 | Opportunities | `/opportunities` | Kanban board with drag-and-drop between stages |
 | Reputation | `/reputation` | Review feed, star ratings, inline replies, listing sync |
 | Payments | `/payments` | Invoices with inline status, products, totals |
+| Products & Price Book | `/products` | One-time/recurring items, inline toggles, add + edit pricing |
+| Payment Links | `/payment-links` | Product bundles, copy link, visit/conversion metrics |
 | Contracts | `/documents` | Proposals/contracts/estimates, create modal, status pipeline |
 | Campaigns | `/campaigns` | Email/SMS metrics, CTR bars, delivery funnel |
 | Social Planner | `/social` | Draft → scheduled → published board, post composer |
@@ -79,7 +82,7 @@ src/
 
 There is no backend. `StoreProvider` holds the whole workspace in a `useReducer`, and every
 action returns a new immutable state. The state is mirrored into `localStorage` under
-`ghl-lite.workspace.v2` after each change, so your edits survive a refresh. **Settings → Workspace
+`ghl-lite.workspace.v3` after each change, so your edits survive a refresh. **Settings → Workspace
 data → Reset** restores the seed.
 
 To add a field or entity:

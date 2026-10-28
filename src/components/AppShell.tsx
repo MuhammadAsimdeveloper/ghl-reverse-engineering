@@ -24,6 +24,7 @@ function Sidebar({ onNavigate }: { onNavigate: () => void }) {
         { to: '/conversations', label: 'Conversations', icon: 'message', badge: unread },
         { to: '/calendars', label: 'Calendars', icon: 'calendar' },
         { to: '/contacts', label: 'Contacts', icon: 'users' },
+        { to: '/tasks', label: 'Tasks', icon: 'task' },
         { to: '/opportunities', label: 'Opportunities', icon: 'kanban' },
         { to: '/reputation', label: 'Reputation', icon: 'star' },
         { to: '/smart-lists', label: 'Smart Lists', icon: 'sliders' },
@@ -61,6 +62,8 @@ function Sidebar({ onNavigate }: { onNavigate: () => void }) {
       label: 'Commerce',
       items: [
         { to: '/payments', label: 'Payments', icon: 'wallet' },
+        { to: '/products', label: 'Products', icon: 'tag' },
+        { to: '/payment-links', label: 'Payment Links', icon: 'link' },
         { to: '/orders', label: 'Orders', icon: 'clipboard' },
         { to: '/subscriptions', label: 'Subscriptions', icon: 'repeat' },
         { to: '/documents', label: 'Contracts', icon: 'file' },
@@ -305,6 +308,7 @@ function TopBar({ onOpenNav }: { onOpenNav: () => void }) {
     '/conversations': 'Conversations',
     '/calendars': 'Calendars',
     '/contacts': 'Contacts',
+    '/tasks': 'Tasks',
     '/opportunities': 'Opportunities',
     '/campaigns': 'Campaigns',
     '/social': 'Social Planner',
@@ -314,6 +318,8 @@ function TopBar({ onOpenNav }: { onOpenNav: () => void }) {
     '/forms': 'Forms & Surveys',
     '/workflows': 'Workflows',
     '/payments': 'Payments',
+    '/products': 'Products',
+    '/payment-links': 'Payment Links',
     '/settings': 'Settings',
   };
   const title = titles[location.pathname] ?? 'Workspace';

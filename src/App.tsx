@@ -5,10 +5,13 @@ import Conversations from './pages/Conversations';
 import Calendars from './pages/Calendars';
 import Contacts from './pages/Contacts';
 import ContactDetail from './pages/ContactDetail';
+import Tasks from './pages/Tasks';
 import Opportunities from './pages/Opportunities';
 import Reputation from './pages/Reputation';
 import SmartLists from './pages/SmartLists';
 import Payments from './pages/Payments';
+import Products from './pages/Products';
+import PaymentLinks from './pages/PaymentLinks';
 import Orders from './pages/Orders';
 import Subscriptions from './pages/Subscriptions';
 import Campaigns from './pages/Campaigns';
@@ -40,10 +43,13 @@ export default function App() {
         <Route path="calendars" element={<Calendars />} />
         <Route path="contacts" element={<Contacts />} />
         <Route path="contacts/:id" element={<ContactDetail />} />
+        <Route path="tasks" element={<Tasks />} />
         <Route path="opportunities" element={<Opportunities />} />
         <Route path="reputation" element={<Reputation />} />
         <Route path="smart-lists" element={<SmartLists />} />
         <Route path="payments" element={<Payments />} />
+        <Route path="products" element={<Products />} />
+        <Route path="payment-links" element={<PaymentLinks />} />
         <Route path="orders" element={<Orders />} />
         <Route path="subscriptions" element={<Subscriptions />} />
         <Route path="documents" element={<Documents />} />

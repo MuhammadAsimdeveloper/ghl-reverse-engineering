@@ -21,6 +21,10 @@ export default function Contacts() {
   const [status, setStatus] = useState<'all' | ContactStatus>('all');
   const [tag, setTag] = useState('all');
   const [adding, setAdding] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [tagDraft, setTagDraft] = useState('');
+  const [statusDraft, setStatusDraft] = useState<ContactStatus>('lead');
+  const [confirmBulk, setConfirmBulk] = useState(false);
 
   const allTags = useMemo(
     () => Array.from(new Set(state.contacts.flatMap((c) => c.tags))).sort(),
@@ -40,6 +44,31 @@ export default function Contacts() {
       })
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }, [state.contacts, query, status, tag]);
+
+  const visibleIds = rows.map((c) => c.id);
+  const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.includes(id));
+
+  const toggleRow = (id: string) =>
+    setSelected((current) => (current.includes(id) ? current.filter((x) => x !== id) : [...current, id]));
+
+  const toggleAll = () =>
+    setSelected((current) =>
+      allSelected
+        ? current.filter((id) => !visibleIds.includes(id))
+        : Array.from(new Set([...current, ...visibleIds])),
+    );
+
+  const applyTag = () => {
+    const value = tagDraft.trim().toLowerCase().replace(/\s+/g, '-');
+    if (!value || selected.length === 0) return;
+    dispatch({ type: 'contact/bulkTag', ids: selected, tag: value });
+    setTagDraft('');
+  };
+
+  const applyStatus = () => {
+    if (selected.length === 0) return;
+    dispatch({ type: 'contact/bulkStatus', ids: selected, status: statusDraft });
+  };
 
   return (
     <div className="content">
@@ -88,6 +117,54 @@ export default function Contacts() {
           <span className="hint">{rows.length} shown</span>
         </div>
 
+        {selected.length > 0 && (
+          <div className="bulk-bar">
+            <strong style={{ fontSize: 13 }}>{selected.length} selected</strong>
+            <div className="row" style={{ gap: 6 }}>
+              <input
+                className="input"
+                style={{ height: 30, width: 150 }}
+                placeholder="Add tag…"
+                value={tagDraft}
+                onChange={(e) => setTagDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') applyTag();
+                }}
+              />
+              <button className="btn btn--sm" type="button" onClick={applyTag} disabled={!tagDraft.trim()}>
+                Add tag
+              </button>
+            </div>
+            <div className="row" style={{ gap: 6 }}>
+              <select
+                className="select select--sm"
+                value={statusDraft}
+                onChange={(e) => setStatusDraft(e.target.value as ContactStatus)}
+                aria-label="Status for selected contacts"
+              >
+                <option value="lead">Lead</option>
+                <option value="customer">Customer</option>
+                <option value="cold">Cold</option>
+              </select>
+              <button className="btn btn--sm" type="button" onClick={applyStatus}>
+                Set status
+              </button>
+            </div>
+            <span className="spacer" />
+            <button className="btn btn--sm btn--ghost" type="button" onClick={() => setSelected([])}>
+              Clear
+            </button>
+            <button
+              className="btn btn--sm"
+              type="button"
+              style={{ color: 'var(--red)' }}
+              onClick={() => setConfirmBulk(true)}
+            >
+              <Icon name="trash" size={13} /> Delete
+            </button>
+          </div>
+        )}
+
         {rows.length === 0 ? (
           <EmptyState
             icon={<Icon name="users" size={22} />}
@@ -104,6 +181,15 @@ export default function Contacts() {
             <table className="table">
               <thead>
                 <tr>
+                  <th style={{ width: 36 }}>
+                    <input
+                      type="checkbox"
+                      className="check"
+                      checked={allSelected}
+                      onChange={toggleAll}
+                      aria-label="Select all contacts"
+                    />
+                  </th>
                   <th>Contact</th>
                   <th>Company</th>
                   <th>Tags</th>
@@ -116,6 +202,15 @@ export default function Contacts() {
               <tbody>
                 {rows.map((c) => (
                   <tr key={c.id} className="is-clickable" onClick={() => navigate(`/contacts/${c.id}`)}>
+                    <td onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        className="check"
+                        checked={selected.includes(c.id)}
+                        onChange={() => toggleRow(c.id)}
+                        aria-label={`Select ${c.firstName} ${c.lastName}`}
+                      />
+                    </td>
                     <td>
                       <Link className="person" to={`/contacts/${c.id}`} onClick={(e) => e.stopPropagation()}>
                         <Avatar name={`${c.firstName} ${c.lastName}`} />
@@ -161,6 +256,36 @@ export default function Contacts() {
             navigate(`/contacts/${contact.id}`);
           }}
         />
+      )}
+
+      {confirmBulk && (
+        <Modal
+          title={`Delete ${selected.length} contact${selected.length === 1 ? '' : 's'}?`}
+          onClose={() => setConfirmBulk(false)}
+          footer={
+            <>
+              <button className="btn" onClick={() => setConfirmBulk(false)}>
+                Cancel
+              </button>
+              <button
+                className="btn btn--primary"
+                style={{ background: 'var(--red)', borderColor: 'var(--red)' }}
+                onClick={() => {
+                  dispatch({ type: 'contact/bulkDelete', ids: selected });
+                  setSelected([]);
+                  setConfirmBulk(false);
+                }}
+              >
+                Delete permanently
+              </button>
+            </>
+          }
+        >
+          <p style={{ fontSize: 13, lineHeight: 1.6 }}>
+            This removes the selected contacts along with their deals, conversations, appointments, invoices, orders and
+            subscriptions. This cannot be undone.
+          </p>
+        </Modal>
       )}
     </div>
   );

@@ -110,6 +110,33 @@ export interface Product {
   active: boolean;
 }
 
+export type TaskPriority = 'low' | 'medium' | 'high';
+
+export interface Task {
+  id: ID;
+  title: string;
+  contactId?: ID;
+  opportunityId?: ID;
+  assignee: string;
+  /** ISO date-time */
+  dueAt: string;
+  priority: TaskPriority;
+  done: boolean;
+  createdAt: string;
+}
+
+export interface PaymentLink {
+  id: ID;
+  name: string;
+  productIds: ID[];
+  amount: number;
+  slug: string;
+  visits: number;
+  conversions: number;
+  active: boolean;
+  createdAt: string;
+}
+
 export type CampaignStatus = 'draft' | 'scheduled' | 'sent';
 
 export interface Campaign {
@@ -381,6 +408,8 @@ export interface WorkspaceState {
   appointments: Appointment[];
   invoices: Invoice[];
   products: Product[];
+  paymentLinks: PaymentLink[];
+  tasks: Task[];
   campaigns: Campaign[];
   posts: SocialPost[];
   sites: Site[];

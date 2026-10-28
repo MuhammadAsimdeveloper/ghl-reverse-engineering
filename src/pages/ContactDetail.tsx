@@ -3,11 +3,11 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Icon } from '../components/Icon';
 import { Modal } from '../components/Modal';
 import { Avatar, Badge, EmptyState, StatusBadge } from '../components/ui';
-import { useStore, CHANNEL_META } from '../lib/store';
-import { currency, fullDate, relative, timeOf } from '../lib/format';
+import { useStore, CHANNEL_META, uid } from '../lib/store';
+import { currency, fullDate, relative, shortDate, timeOf } from '../lib/format';
 import type { Contact, ContactStatus } from '../lib/types';
 
-const TABS = ['overview', 'notes', 'deals', 'inbox'] as const;
+const TABS = ['overview', 'notes', 'tasks', 'deals', 'inbox'] as const;
 type Tab = (typeof TABS)[number];
 
 export default function ContactDetail() {
@@ -18,6 +18,7 @@ export default function ContactDetail() {
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [noteDraft, setNoteDraft] = useState('');
+  const [taskDraft, setTaskDraft] = useState('');
 
   const contact = state.contacts.find((c) => c.id === id);
 
@@ -51,6 +52,31 @@ export default function ContactDetail() {
     if (!noteDraft.trim()) return;
     dispatch({ type: 'contact/note', id: contact.id, body: noteDraft.trim(), author: 'Asim R.' });
     setNoteDraft('');
+  };
+
+  const contactTasks = state.tasks
+    .filter((t) => t.contactId === contact.id)
+    .sort((a, b) => Number(a.done) - Number(b.done) || a.dueAt.localeCompare(b.dueAt));
+
+  const addTask = () => {
+    if (!taskDraft.trim()) return;
+    const due = new Date();
+    due.setDate(due.getDate() + 1);
+    due.setHours(9, 0, 0, 0);
+    dispatch({
+      type: 'task/add',
+      task: {
+        id: uid('tk'),
+        title: taskDraft.trim(),
+        contactId: contact.id,
+        assignee: contact.owner,
+        dueAt: due.toISOString(),
+        priority: 'medium',
+        done: false,
+        createdAt: new Date().toISOString(),
+      },
+    });
+    setTaskDraft('');
   };
 
   return (
@@ -190,6 +216,68 @@ export default function ContactDetail() {
             </div>
           )}
 
+          {tab === 'tasks' && (
+            <div className="card__body stack">
+              <div className="field">
+                <label>Add a task</label>
+                <input
+                  className="input"
+                  placeholder="Follow up about the proposal…"
+                  value={taskDraft}
+                  onChange={(e) => setTaskDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') addTask();
+                  }}
+                />
+              </div>
+              <div className="row" style={{ gap: 8 }}>
+                <button className="btn btn--primary btn--sm" onClick={addTask} disabled={!taskDraft.trim()}>
+                  <Icon name="plus" size={14} /> Add task
+                </button>
+                <Link className="btn btn--ghost btn--sm" to="/tasks">
+                  All tasks
+                </Link>
+              </div>
+              <div className="divider" />
+              {contactTasks.length === 0 ? (
+                <div className="hint">No tasks for this contact yet.</div>
+              ) : (
+                <div className="stack" style={{ gap: 2 }}>
+                  {contactTasks.map((t) => (
+                    <div className={`task${t.done ? ' is-done' : ''}`} key={t.id}>
+                      <button
+                        type="button"
+                        className="task__check"
+                        role="checkbox"
+                        aria-checked={t.done}
+                        aria-label={t.done ? `Reopen ${t.title}` : `Complete ${t.title}`}
+                        onClick={() => dispatch({ type: 'task/toggle', id: t.id })}
+                      >
+                        {t.done && <Icon name="check" size={13} />}
+                      </button>
+                      <div className="task__body">
+                        <div className="task__title">{t.title}</div>
+                        <div className="task__meta">
+                          <span>{t.assignee}</span>
+                          <span className="task__dot">·</span>
+                          <span>{shortDate(t.dueAt)}, {timeOf(t.dueAt)}</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="icon-btn"
+                        aria-label={`Delete ${t.title}`}
+                        onClick={() => dispatch({ type: 'task/delete', id: t.id })}
+                      >
+                        <Icon name="trash" size={15} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {tab === 'deals' && (
             <div className="table-wrap">
               {deals.length === 0 ? (
@@ -271,6 +359,10 @@ export default function ContactDetail() {
               <div className="row row--between">
                 <span className="hint">Invoices</span>
                 <strong style={{ fontSize: 14 }}>{invoices.length}</strong>
+              </div>
+              <div className="row row--between">
+                <span className="hint">Open tasks</span>
+                <strong style={{ fontSize: 14 }}>{contactTasks.filter((t) => !t.done).length}</strong>
               </div>
               <div className="divider" />
               <div className="hint">

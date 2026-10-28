@@ -17,17 +17,19 @@ import type {
   MediaAsset,
   Note,
   Opportunity,
+  PaymentLink,
   Product,
   QrCode,
   SmartList,
   SocialPost,
+  Task,
   TeamMember,
   TriggerLink,
   WorkspaceState,
   Workflow,
 } from './types';
 
-const STORAGE_KEY = 'ghl-lite.workspace.v2';
+const STORAGE_KEY = 'ghl-lite.workspace.v3';
 
 export function uid(prefix = 'id'): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
@@ -37,6 +39,9 @@ export type Action =
   | { type: 'contact/add'; contact: Contact }
   | { type: 'contact/update'; id: string; patch: Partial<Contact> }
   | { type: 'contact/delete'; id: string }
+  | { type: 'contact/bulkTag'; ids: string[]; tag: string }
+  | { type: 'contact/bulkStatus'; ids: string[]; status: Contact['status'] }
+  | { type: 'contact/bulkDelete'; ids: string[] }
   | { type: 'contact/note'; id: string; body: string; author: string }
   | { type: 'opportunity/add'; opportunity: Opportunity }
   | { type: 'opportunity/move'; id: string; stageId: string }
@@ -51,6 +56,13 @@ export type Action =
   | { type: 'invoice/status'; id: string; status: Invoice['status'] }
   | { type: 'product/toggle'; id: string }
   | { type: 'product/add'; product: Product }
+  | { type: 'product/update'; id: string; patch: Partial<Product> }
+  | { type: 'paymentLink/add'; link: PaymentLink }
+  | { type: 'paymentLink/toggle'; id: string }
+  | { type: 'paymentLink/visit'; id: string }
+  | { type: 'task/add'; task: Task }
+  | { type: 'task/toggle'; id: string }
+  | { type: 'task/delete'; id: string }
   | { type: 'post/add'; post: SocialPost }
   | { type: 'post/status'; id: string; status: SocialPost['status'] }
   | { type: 'site/toggle'; id: string }
@@ -82,6 +94,24 @@ export type Action =
   | { type: 'notifications/readAll' }
   | { type: 'workspace/reset' };
 
+function pruneContacts(state: WorkspaceState, ids: Set<string>): WorkspaceState {
+  const keep = (contactId: string) => !ids.has(contactId);
+  return {
+    ...state,
+    contacts: state.contacts.filter((c) => keep(c.id)),
+    opportunities: state.opportunities.filter((o) => keep(o.contactId)),
+    conversations: state.conversations.filter((c) => keep(c.contactId)),
+    appointments: state.appointments.filter((a) => keep(a.contactId)),
+    invoices: state.invoices.filter((i) => keep(i.contactId)),
+    enrollments: state.enrollments.filter((e) => keep(e.contactId)),
+    reviews: state.reviews.filter((r) => keep(r.contactId)),
+    documents: state.documents.filter((d) => keep(d.contactId)),
+    orders: state.orders.filter((o) => keep(o.contactId)),
+    subscriptions: state.subscriptions.filter((s) => keep(s.contactId)),
+    tasks: state.tasks.filter((t) => !t.contactId || keep(t.contactId)),
+  };
+}
+
 function reducer(state: WorkspaceState, action: Action): WorkspaceState {
   switch (action.type) {
     case 'contact/add':
@@ -94,18 +124,28 @@ function reducer(state: WorkspaceState, action: Action): WorkspaceState {
       };
 
     case 'contact/delete':
+      return pruneContacts(state, new Set([action.id]));
+
+    case 'contact/bulkTag': {
+      const ids = new Set(action.ids);
       return {
         ...state,
-        contacts: state.contacts.filter((c) => c.id !== action.id),
-        opportunities: state.opportunities.filter((o) => o.contactId !== action.id),
-        conversations: state.conversations.filter((c) => c.contactId !== action.id),
-        appointments: state.appointments.filter((a) => a.contactId !== action.id),
-        enrollments: state.enrollments.filter((e) => e.contactId !== action.id),
-        reviews: state.reviews.filter((r) => r.contactId !== action.id),
-        documents: state.documents.filter((d) => d.contactId !== action.id),
-        orders: state.orders.filter((o) => o.contactId !== action.id),
-        subscriptions: state.subscriptions.filter((s) => s.contactId !== action.id),
+        contacts: state.contacts.map((c) =>
+          ids.has(c.id) && !c.tags.includes(action.tag) ? { ...c, tags: [...c.tags, action.tag] } : c,
+        ),
       };
+    }
+
+    case 'contact/bulkStatus': {
+      const ids = new Set(action.ids);
+      return {
+        ...state,
+        contacts: state.contacts.map((c) => (ids.has(c.id) ? { ...c, status: action.status } : c)),
+      };
+    }
+
+    case 'contact/bulkDelete':
+      return pruneContacts(state, new Set(action.ids));
 
     case 'contact/note': {
       const note: Note = { id: uid('note'), body: action.body, at: new Date().toISOString(), author: action.author };
@@ -193,6 +233,43 @@ function reducer(state: WorkspaceState, action: Action): WorkspaceState {
 
     case 'product/add':
       return { ...state, products: [...state.products, action.product] };
+
+    case 'product/update':
+      return {
+        ...state,
+        products: state.products.map((p) => (p.id === action.id ? { ...p, ...action.patch } : p)),
+      };
+
+    case 'paymentLink/add':
+      return { ...state, paymentLinks: [action.link, ...state.paymentLinks] };
+
+    case 'paymentLink/toggle':
+      return {
+        ...state,
+        paymentLinks: state.paymentLinks.map((l) =>
+          l.id === action.id ? { ...l, active: !l.active } : l,
+        ),
+      };
+
+    case 'paymentLink/visit':
+      return {
+        ...state,
+        paymentLinks: state.paymentLinks.map((l) =>
+          l.id === action.id ? { ...l, visits: l.visits + 1 } : l,
+        ),
+      };
+
+    case 'task/add':
+      return { ...state, tasks: [action.task, ...state.tasks] };
+
+    case 'task/toggle':
+      return {
+        ...state,
+        tasks: state.tasks.map((t) => (t.id === action.id ? { ...t, done: !t.done } : t)),
+      };
+
+    case 'task/delete':
+      return { ...state, tasks: state.tasks.filter((t) => t.id !== action.id) };
 
     case 'post/add':
       return { ...state, posts: [action.post, ...state.posts] };
