@@ -1,0 +1,318 @@
+/** Core domain model for the workspace. */
+
+export type ID = string;
+
+export type Channel = 'sms' | 'email' | 'facebook' | 'instagram' | 'webchat';
+
+export type ContactStatus = 'lead' | 'customer' | 'cold';
+
+export interface Note {
+  id: ID;
+  body: string;
+  at: string;
+  author: string;
+}
+
+export interface Contact {
+  id: ID;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  company: string;
+  tags: string[];
+  source: string;
+  status: ContactStatus;
+  owner: string;
+  createdAt: string;
+  notes: Note[];
+  customFields: Record<string, string>;
+}
+
+export interface Stage {
+  id: ID;
+  name: string;
+  color: string;
+}
+
+export interface Pipeline {
+  id: ID;
+  name: string;
+  stages: Stage[];
+}
+
+export type OpportunityStatus = 'open' | 'won' | 'lost';
+
+export interface Opportunity {
+  id: ID;
+  name: string;
+  pipelineId: ID;
+  stageId: ID;
+  contactId: ID;
+  value: number;
+  status: OpportunityStatus;
+  owner: string;
+  createdAt: string;
+}
+
+export interface Message {
+  id: ID;
+  direction: 'in' | 'out';
+  body: string;
+  at: string;
+}
+
+export interface Conversation {
+  id: ID;
+  contactId: ID;
+  channel: Channel;
+  unread: number;
+  starred: boolean;
+  messages: Message[];
+}
+
+export interface CalendarDef {
+  id: ID;
+  name: string;
+  color: string;
+}
+
+export type AppointmentStatus = 'confirmed' | 'pending' | 'cancelled';
+
+export interface Appointment {
+  id: ID;
+  calendarId: ID;
+  contactId: ID;
+  title: string;
+  /** ISO date-time */
+  start: string;
+  durationMin: number;
+  status: AppointmentStatus;
+}
+
+export type InvoiceStatus = 'paid' | 'sent' | 'draft' | 'overdue';
+
+export interface Invoice {
+  id: ID;
+  number: string;
+  contactId: ID;
+  amount: number;
+  status: InvoiceStatus;
+  issuedAt: string;
+}
+
+export interface Product {
+  id: ID;
+  name: string;
+  price: number;
+  kind: 'one_time' | 'recurring';
+  active: boolean;
+}
+
+export type CampaignStatus = 'draft' | 'scheduled' | 'sent';
+
+export interface Campaign {
+  id: ID;
+  name: string;
+  kind: 'email' | 'sms';
+  status: CampaignStatus;
+  audience: number;
+  sent: number;
+  opened: number;
+  clicked: number;
+  scheduledAt: string;
+}
+
+export type PostStatus = 'draft' | 'scheduled' | 'published';
+
+export interface SocialPost {
+  id: ID;
+  body: string;
+  platforms: Array<'facebook' | 'instagram' | 'linkedin' | 'tiktok' | 'google'>;
+  status: PostStatus;
+  scheduledAt: string;
+  likes: number;
+  comments: number;
+}
+
+export interface SitePage {
+  id: ID;
+  name: string;
+  path: string;
+}
+
+export interface Site {
+  id: ID;
+  name: string;
+  kind: 'funnel' | 'website';
+  published: boolean;
+  visits: number;
+  optins: number;
+  pages: SitePage[];
+}
+
+export type FormKind = 'form' | 'survey';
+
+export interface FormDef {
+  id: ID;
+  name: string;
+  kind: FormKind;
+  published: boolean;
+  submissions: number;
+  fields: number;
+}
+
+export interface WorkflowAction {
+  id: ID;
+  kind: 'sms' | 'email' | 'wait' | 'tag' | 'task' | 'webhook' | 'condition';
+  label: string;
+}
+
+export interface Workflow {
+  id: ID;
+  name: string;
+  status: 'published' | 'draft';
+  trigger: string;
+  actions: WorkflowAction[];
+  enrolled: number;
+  completed: number;
+}
+
+export type ReviewSource = 'google' | 'facebook' | 'yelp';
+export type ReviewStatus = 'new' | 'replied' | 'flagged';
+
+export interface Review {
+  id: ID;
+  contactId: ID;
+  rating: 1 | 2 | 3 | 4 | 5;
+  body: string;
+  source: ReviewSource;
+  at: string;
+  status: ReviewStatus;
+  reply?: string;
+}
+
+export interface Listing {
+  id: ID;
+  name: string;
+  source: ReviewSource;
+  connected: boolean;
+  rating: number;
+  reviews: number;
+}
+
+export type CourseKind = 'course' | 'community';
+
+export interface Course {
+  id: ID;
+  title: string;
+  kind: CourseKind;
+  lessons: number;
+  enrollments: number;
+  price: number;
+  published: boolean;
+}
+
+export interface Enrollment {
+  id: ID;
+  courseId: ID;
+  contactId: ID;
+  progress: number;
+  startedAt: string;
+}
+
+export type DocumentKind = 'proposal' | 'contract' | 'estimate';
+export type DocumentStatus = 'draft' | 'sent' | 'signed' | 'declined';
+
+export interface ContractDoc {
+  id: ID;
+  name: string;
+  kind: DocumentKind;
+  contactId: ID;
+  value: number;
+  status: DocumentStatus;
+  updatedAt: string;
+}
+
+export type MediaKind = 'image' | 'video' | 'document';
+
+export interface MediaAsset {
+  id: ID;
+  name: string;
+  kind: MediaKind;
+  folder: string;
+  sizeKb: number;
+  uploadedAt: string;
+}
+
+export type ProspectStatus = 'new' | 'contacted' | 'qualified' | 'skipped';
+
+export interface Prospect {
+  id: ID;
+  company: string;
+  person: string;
+  email: string;
+  industry: string;
+  employees: number;
+  location: string;
+  score: number;
+  status: ProspectStatus;
+}
+
+export interface TeamMember {
+  id: ID;
+  name: string;
+  email: string;
+  role: 'admin' | 'user';
+  online: boolean;
+}
+
+export interface CustomField {
+  id: ID;
+  name: string;
+  type: 'text' | 'number' | 'date' | 'select';
+  entity: 'contact' | 'opportunity';
+}
+
+export interface Integration {
+  id: ID;
+  name: string;
+  category: string;
+  connected: boolean;
+  blurb: string;
+}
+
+export interface Notification {
+  id: ID;
+  title: string;
+  body: string;
+  at: string;
+  read: boolean;
+}
+
+export interface WorkspaceState {
+  contacts: Contact[];
+  pipelines: Pipeline[];
+  opportunities: Opportunity[];
+  conversations: Conversation[];
+  calendars: CalendarDef[];
+  appointments: Appointment[];
+  invoices: Invoice[];
+  products: Product[];
+  campaigns: Campaign[];
+  posts: SocialPost[];
+  sites: Site[];
+  forms: FormDef[];
+  workflows: Workflow[];
+  reviews: Review[];
+  listings: Listing[];
+  courses: Course[];
+  enrollments: Enrollment[];
+  documents: ContractDoc[];
+  media: MediaAsset[];
+  prospects: Prospect[];
+  team: TeamMember[];
+  customFields: CustomField[];
+  integrations: Integration[];
+  notifications: Notification[];
+}
