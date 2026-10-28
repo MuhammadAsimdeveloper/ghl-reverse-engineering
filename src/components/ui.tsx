@@ -53,6 +53,19 @@ export function StatusBadge({ status }: { status: string }) {
     lead: { tone: 'blue', label: 'Lead' },
     customer: { tone: 'green', label: 'Customer' },
     cold: { tone: 'default', label: 'Cold' },
+    refunded: { tone: 'red', label: 'Refunded' },
+    active: { tone: 'green', label: 'Active' },
+    past_due: { tone: 'amber', label: 'Past due' },
+    canceled: { tone: 'red', label: 'Canceled' },
+    paused: { tone: 'default', label: 'Paused' },
+    qualified: { tone: 'green', label: 'Qualified' },
+    contacted: { tone: 'amber', label: 'Contacted' },
+    skipped: { tone: 'default', label: 'Skipped' },
+    replied: { tone: 'green', label: 'Replied' },
+    flagged: { tone: 'red', label: 'Flagged' },
+    signed: { tone: 'green', label: 'Signed' },
+    declined: { tone: 'red', label: 'Declined' },
+    new: { tone: 'blue', label: 'New' },
   };
   const item = map[status] ?? { tone: 'default' as const, label: status };
   return (

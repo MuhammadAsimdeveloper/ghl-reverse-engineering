@@ -18,13 +18,16 @@ import type {
   Note,
   Opportunity,
   Product,
+  QrCode,
+  SmartList,
   SocialPost,
   TeamMember,
+  TriggerLink,
   WorkspaceState,
   Workflow,
 } from './types';
 
-const STORAGE_KEY = 'ghl-lite.workspace.v1';
+const STORAGE_KEY = 'ghl-lite.workspace.v2';
 
 export function uid(prefix = 'id'): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
@@ -64,6 +67,15 @@ export type Action =
   | { type: 'media/add'; asset: MediaAsset }
   | { type: 'media/delete'; id: string }
   | { type: 'prospect/status'; id: string; status: 'new' | 'contacted' | 'qualified' | 'skipped' }
+  | { type: 'order/status'; id: string; status: 'paid' | 'pending' | 'refunded' }
+  | { type: 'subscription/status'; id: string; status: 'active' | 'past_due' | 'canceled' }
+  | { type: 'affiliate/status'; id: string; status: 'active' | 'pending' | 'paused' }
+  | { type: 'template/use'; id: string }
+  | { type: 'triggerLink/add'; link: TriggerLink }
+  | { type: 'triggerLink/click'; id: string }
+  | { type: 'blog/toggle'; id: string }
+  | { type: 'qr/add'; code: QrCode }
+  | { type: 'smartList/add'; list: SmartList }
   | { type: 'customField/add'; field: CustomField }
   | { type: 'team/add'; member: TeamMember }
   | { type: 'team/role'; id: string; role: TeamMember['role'] }
@@ -91,6 +103,8 @@ function reducer(state: WorkspaceState, action: Action): WorkspaceState {
         enrollments: state.enrollments.filter((e) => e.contactId !== action.id),
         reviews: state.reviews.filter((r) => r.contactId !== action.id),
         documents: state.documents.filter((d) => d.contactId !== action.id),
+        orders: state.orders.filter((o) => o.contactId !== action.id),
+        subscriptions: state.subscriptions.filter((s) => s.contactId !== action.id),
       };
 
     case 'contact/note': {
@@ -268,6 +282,65 @@ function reducer(state: WorkspaceState, action: Action): WorkspaceState {
         ...state,
         prospects: state.prospects.map((p) => (p.id === action.id ? { ...p, status: action.status } : p)),
       };
+
+    case 'order/status':
+      return {
+        ...state,
+        orders: state.orders.map((o) => (o.id === action.id ? { ...o, status: action.status } : o)),
+      };
+
+    case 'subscription/status':
+      return {
+        ...state,
+        subscriptions: state.subscriptions.map((s) =>
+          s.id === action.id ? { ...s, status: action.status } : s,
+        ),
+      };
+
+    case 'affiliate/status':
+      return {
+        ...state,
+        affiliates: state.affiliates.map((a) => (a.id === action.id ? { ...a, status: action.status } : a)),
+      };
+
+    case 'template/use':
+      return {
+        ...state,
+        templates: state.templates.map((t) => (t.id === action.id ? { ...t, uses: t.uses + 1 } : t)),
+      };
+
+    case 'triggerLink/add':
+      return { ...state, triggerLinks: [action.link, ...state.triggerLinks] };
+
+    case 'triggerLink/click':
+      return {
+        ...state,
+        triggerLinks: state.triggerLinks.map((l) =>
+          l.id === action.id
+            ? { ...l, clicks: l.clicks + 1, lastClickAt: new Date().toISOString() }
+            : l,
+        ),
+      };
+
+    case 'blog/toggle':
+      return {
+        ...state,
+        blogs: state.blogs.map((b) =>
+          b.id === action.id
+            ? {
+                ...b,
+                status: b.status === 'published' ? 'draft' : 'published',
+                publishedAt: b.status === 'published' ? b.publishedAt : new Date().toISOString(),
+              }
+            : b,
+        ),
+      };
+
+    case 'qr/add':
+      return { ...state, qrCodes: [action.code, ...state.qrCodes] };
+
+    case 'smartList/add':
+      return { ...state, smartLists: [action.list, ...state.smartLists] };
 
     case 'customField/add':
       return { ...state, customFields: [...state.customFields, action.field] };

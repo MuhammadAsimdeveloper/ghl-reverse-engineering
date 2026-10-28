@@ -245,6 +245,15 @@ const paths: Record<string, ReactNode> = {
       <circle cx="12" cy="10" r="2.6" />
     </>
   ),
+  qr: (
+    <>
+      <rect x="3.5" y="3.5" width="6.5" height="6.5" rx="1" />
+      <rect x="14" y="3.5" width="6.5" height="6.5" rx="1" />
+      <rect x="3.5" y="14" width="6.5" height="6.5" rx="1" />
+      <path d="M14 14h2.5v2.5H14zM18 18h2.5v2.5H18zM14 20.5h1M20.5 14h-1" />
+    </>
+  ),
+  repeat: <path d="M4 9a5 5 0 0 1 5-5h9l-3-3m3 3-3 3M20 15a5 5 0 0 1-5 5H6l3 3m-3-3 3-3" />,
 };
 
 export interface IconProps extends Omit<SVGProps<SVGSVGElement>, 'name'> {

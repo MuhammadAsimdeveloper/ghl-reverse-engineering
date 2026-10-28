@@ -45,6 +45,7 @@ export const seed: WorkspaceState = {
       createdAt: day(-120),
       notes: [{ id: 'n2', body: 'Renewed retainer for 12 months.', at: day(-40, 11), author: 'Priya N.' }],
       customFields: { 'MRR': '$1,800', 'Service': 'Retainer' },
+      portalAccess: true,
     },
     {
       id: 'c3',
@@ -120,6 +121,7 @@ export const seed: WorkspaceState = {
       createdAt: day(-14),
       notes: [],
       customFields: { 'Budget': '$1,200', 'Service': 'Starter' },
+      portalAccess: true,
     },
     {
       id: 'c8',
@@ -195,6 +197,7 @@ export const seed: WorkspaceState = {
       createdAt: day(-310),
       notes: [],
       customFields: { 'MRR': '$1,400', 'Service': 'Retainer' },
+      portalAccess: true,
     },
   ],
 
@@ -491,7 +494,7 @@ export const seed: WorkspaceState = {
       source: 'google',
       at: day(-26, 14),
       status: 'replied',
-      reply: 'Thank you Marcus — the speed-to-lead workflow is doing the heavy lifting.',
+      reply: 'Thank you — the speed-to-lead workflow is doing the heavy lifting.',
     },
     {
       id: 'rv6',
@@ -696,6 +699,73 @@ export const seed: WorkspaceState = {
       score: 90,
       status: 'qualified',
     },
+  ],
+
+  orders: [
+    { id: 'od1', number: 'ORD-3184', contactId: 'c2', items: 3, total: 2400, status: 'paid', at: day(-2, 11) },
+    { id: 'od2', number: 'ORD-3183', contactId: 'c5', items: 1, total: 299, status: 'paid', at: day(-4, 15) },
+    { id: 'od3', number: 'ORD-3182', contactId: 'c7', items: 2, total: 1180, status: 'pending', at: day(-5, 9) },
+    { id: 'od4', number: 'ORD-3181', contactId: 'c9', items: 1, total: 499, status: 'refunded', at: day(-8, 13) },
+    { id: 'od5', number: 'ORD-3180', contactId: 'c12', items: 4, total: 3600, status: 'paid', at: day(-11, 16) },
+    { id: 'od6', number: 'ORD-3179', contactId: 'c3', items: 1, total: 149, status: 'pending', at: day(-13, 10) },
+  ],
+
+  subscriptions: [
+    { id: 'sb1', contactId: 'c2', plan: 'Growth Retainer', amount: 1800, interval: 'month', status: 'active', renewsAt: day(12) },
+    { id: 'sb2', contactId: 'c7', plan: 'Automation Pro', amount: 299, interval: 'month', status: 'active', renewsAt: day(5) },
+    { id: 'sb3', contactId: 'c12', plan: 'Scale Plan', amount: 899, interval: 'month', status: 'past_due', renewsAt: day(-3) },
+    { id: 'sb4', contactId: 'c3', plan: 'Starter', amount: 99, interval: 'month', status: 'active', renewsAt: day(19) },
+    { id: 'sb5', contactId: 'c9', plan: 'Legacy Annual', amount: 499, interval: 'year', status: 'canceled', renewsAt: day(120) },
+    { id: 'sb6', contactId: 'c5', plan: 'Community VIP', amount: 49, interval: 'month', status: 'active', renewsAt: day(8) },
+  ],
+
+  affiliates: [
+    { id: 'af1', name: 'Elena Marsh', email: 'elena@harborviewdental.test', code: 'ELENA10', clicks: 320, signups: 64, conversions: 18, commissionPct: 20, payout: 1240, status: 'active' },
+    { id: 'af2', name: 'Tom Alvarez', email: 'tom@ridgelineroofing.test', code: 'TOM15', clicks: 210, signups: 41, conversions: 12, commissionPct: 15, payout: 780, status: 'active' },
+    { id: 'af3', name: 'Sana Patel', email: 'sana@bluebirdbakery.test', code: 'SANA20', clicks: 140, signups: 28, conversions: 6, commissionPct: 25, payout: 410, status: 'pending' },
+    { id: 'af4', name: 'Owen Brady', email: 'owen@kestrelfit.test', code: 'OWEN10', clicks: 90, signups: 12, conversions: 3, commissionPct: 20, payout: 120, status: 'paused' },
+    { id: 'af5', name: 'Ruth Chen', email: 'ruth@northgatelegal.test', code: 'RUTH25', clicks: 60, signups: 9, conversions: 2, commissionPct: 25, payout: 95, status: 'active' },
+  ],
+
+  templates: [
+    { id: 'tp1', name: 'Welcome sequence', category: 'Onboarding', subject: 'Welcome aboard — here is what happens next', updatedAt: day(-6), uses: 148 },
+    { id: 'tp2', name: 'Invoice reminder', category: 'Billing', subject: 'Quick reminder about invoice {{number}}', updatedAt: day(-12), uses: 312 },
+    { id: 'tp3', name: 'Appointment confirmation', category: 'Scheduling', subject: 'Your appointment is confirmed', updatedAt: day(-3), uses: 204 },
+    { id: 'tp4', name: 'Review request', category: 'Reputation', subject: 'How did we do?', updatedAt: day(-9), uses: 96 },
+    { id: 'tp5', name: 'Re-engagement', category: 'Win-back', subject: 'It has been a while — here is 15% off', updatedAt: day(-21), uses: 74 },
+    { id: 'tp6', name: 'Product launch', category: 'Marketing', subject: 'Something new just landed', updatedAt: day(-1), uses: 18 },
+  ],
+
+  triggerLinks: [
+    { id: 'tl1', name: 'Book a call', slug: 'book-call', clicks: 482, lastClickAt: minutesAgo(12) },
+    { id: 'tl2', name: 'Pricing guide', slug: 'pricing-guide', clicks: 361, lastClickAt: minutesAgo(95) },
+    { id: 'tl3', name: 'Webinar replay', slug: 'replay', clicks: 254, lastClickAt: minutesAgo(430) },
+    { id: 'tl4', name: 'Case study', slug: 'northwind', clicks: 143, lastClickAt: minutesAgo(1500) },
+    { id: 'tl5', name: 'Free audit', slug: 'audit', clicks: 97, lastClickAt: minutesAgo(2600) },
+  ],
+
+  blogs: [
+    { id: 'bl1', title: '5 automations every agency needs', author: 'Asim R.', status: 'published', views: 1240, publishedAt: day(-12) },
+    { id: 'bl2', title: 'Speeding up lead response time', author: 'Priya N.', status: 'published', views: 890, publishedAt: day(-20) },
+    { id: 'bl3', title: 'Q4 pipeline planning worksheet', author: 'Asim R.', status: 'draft', views: 0, publishedAt: day(-1) },
+    { id: 'bl4', title: 'How we cut churn by 30%', author: 'Jonah T.', status: 'published', views: 640, publishedAt: day(-34) },
+    { id: 'bl5', title: 'Webinar recap: speed to lead', author: 'Maya L.', status: 'draft', views: 0, publishedAt: day(-2) },
+  ],
+
+  qrCodes: [
+    { id: 'qr1', name: 'Front desk poster', target: '/book', scans: 412, createdAt: day(-40) },
+    { id: 'qr2', name: 'Business card', target: '/card', scans: 286, createdAt: day(-61) },
+    { id: 'qr3', name: 'Menu insert', target: '/menu', scans: 175, createdAt: day(-22) },
+    { id: 'qr4', name: 'Trade show booth', target: '/demo', scans: 530, createdAt: day(-9) },
+    { id: 'qr5', name: 'Review stand', target: '/review', scans: 208, createdAt: day(-15) },
+  ],
+
+  smartLists: [
+    { id: 'sl1', name: 'Hot leads', rule: 'Tag is "hot-lead"', count: 24, tone: 'blue' },
+    { id: 'sl2', name: 'Trial ending this week', rule: 'Trial ends in 7 days', count: 12, tone: 'amber' },
+    { id: 'sl3', name: 'No activity 30d', rule: 'Last activity older than 30 days', count: 38, tone: 'default' },
+    { id: 'sl4', name: 'VIP customers', rule: 'Won deals above $5,000', count: 9, tone: 'violet' },
+    { id: 'sl5', name: 'Unsubscribed', rule: 'Email status is unsubscribed', count: 6, tone: 'red' },
   ],
 
   team: [

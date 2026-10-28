@@ -27,6 +27,7 @@ export interface Contact {
   createdAt: string;
   notes: Note[];
   customFields: Record<string, string>;
+  portalAccess?: boolean;
 }
 
 export interface Stage {
@@ -259,6 +260,87 @@ export interface Prospect {
   status: ProspectStatus;
 }
 
+export type OrderStatus = 'paid' | 'pending' | 'refunded';
+
+export interface Order {
+  id: ID;
+  number: string;
+  contactId: ID;
+  items: number;
+  total: number;
+  status: OrderStatus;
+  at: string;
+}
+
+export type SubscriptionStatus = 'active' | 'past_due' | 'canceled';
+
+export interface Subscription {
+  id: ID;
+  contactId: ID;
+  plan: string;
+  amount: number;
+  interval: 'month' | 'year';
+  status: SubscriptionStatus;
+  renewsAt: string;
+}
+
+export type AffiliateStatus = 'active' | 'pending' | 'paused';
+
+export interface Affiliate {
+  id: ID;
+  name: string;
+  email: string;
+  code: string;
+  clicks: number;
+  signups: number;
+  conversions: number;
+  commissionPct: number;
+  payout: number;
+  status: AffiliateStatus;
+}
+
+export interface EmailTemplate {
+  id: ID;
+  name: string;
+  category: string;
+  subject: string;
+  updatedAt: string;
+  uses: number;
+}
+
+export interface TriggerLink {
+  id: ID;
+  name: string;
+  slug: string;
+  clicks: number;
+  lastClickAt: string;
+}
+
+export interface BlogPost {
+  id: ID;
+  title: string;
+  author: string;
+  status: 'draft' | 'published';
+  views: number;
+  publishedAt: string;
+}
+
+export interface QrCode {
+  id: ID;
+  name: string;
+  target: string;
+  scans: number;
+  createdAt: string;
+}
+
+export interface SmartList {
+  id: ID;
+  name: string;
+  rule: string;
+  count: number;
+  tone: 'blue' | 'green' | 'amber' | 'violet' | 'red' | 'default';
+}
+
 export interface TeamMember {
   id: ID;
   name: string;
@@ -311,6 +393,14 @@ export interface WorkspaceState {
   documents: ContractDoc[];
   media: MediaAsset[];
   prospects: Prospect[];
+  orders: Order[];
+  subscriptions: Subscription[];
+  affiliates: Affiliate[];
+  templates: EmailTemplate[];
+  triggerLinks: TriggerLink[];
+  blogs: BlogPost[];
+  qrCodes: QrCode[];
+  smartLists: SmartList[];
   team: TeamMember[];
   customFields: CustomField[];
   integrations: Integration[];

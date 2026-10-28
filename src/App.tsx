@@ -7,17 +7,26 @@ import Contacts from './pages/Contacts';
 import ContactDetail from './pages/ContactDetail';
 import Opportunities from './pages/Opportunities';
 import Reputation from './pages/Reputation';
+import SmartLists from './pages/SmartLists';
 import Payments from './pages/Payments';
+import Orders from './pages/Orders';
+import Subscriptions from './pages/Subscriptions';
 import Campaigns from './pages/Campaigns';
 import Social from './pages/Social';
 import Prospecting from './pages/Prospecting';
 import MediaLibrary from './pages/MediaLibrary';
+import Templates from './pages/Templates';
+import TriggerLinks from './pages/TriggerLinks';
+import Affiliates from './pages/Affiliates';
 import Funnels from './pages/Funnels';
 import Websites from './pages/Websites';
 import Forms from './pages/Forms';
 import Workflows from './pages/Workflows';
 import Memberships from './pages/Memberships';
 import Documents from './pages/Documents';
+import Blogs from './pages/Blogs';
+import QrCodes from './pages/QrCodes';
+import ClientPortal from './pages/ClientPortal';
 import Reporting from './pages/Reporting';
 import Settings from './pages/Settings';
 import NotFound from './pages/NotFound';
@@ -33,15 +42,24 @@ export default function App() {
         <Route path="contacts/:id" element={<ContactDetail />} />
         <Route path="opportunities" element={<Opportunities />} />
         <Route path="reputation" element={<Reputation />} />
+        <Route path="smart-lists" element={<SmartLists />} />
         <Route path="payments" element={<Payments />} />
+        <Route path="orders" element={<Orders />} />
+        <Route path="subscriptions" element={<Subscriptions />} />
         <Route path="documents" element={<Documents />} />
         <Route path="campaigns" element={<Campaigns />} />
         <Route path="social" element={<Social />} />
         <Route path="prospecting" element={<Prospecting />} />
         <Route path="media" element={<MediaLibrary />} />
+        <Route path="templates" element={<Templates />} />
+        <Route path="links" element={<TriggerLinks />} />
+        <Route path="affiliates" element={<Affiliates />} />
         <Route path="funnels" element={<Funnels />} />
         <Route path="websites" element={<Websites />} />
         <Route path="forms" element={<Forms />} />
+        <Route path="blogs" element={<Blogs />} />
+        <Route path="qr-codes" element={<QrCodes />} />
+        <Route path="portal" element={<ClientPortal />} />
         <Route path="workflows" element={<Workflows />} />
         <Route path="memberships" element={<Memberships />} />
         <Route path="reporting" element={<Reporting />} />

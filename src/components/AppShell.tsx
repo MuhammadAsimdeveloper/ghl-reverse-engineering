@@ -26,6 +26,7 @@ function Sidebar({ onNavigate }: { onNavigate: () => void }) {
         { to: '/contacts', label: 'Contacts', icon: 'users' },
         { to: '/opportunities', label: 'Opportunities', icon: 'kanban' },
         { to: '/reputation', label: 'Reputation', icon: 'star' },
+        { to: '/smart-lists', label: 'Smart Lists', icon: 'sliders' },
       ],
     },
     {
@@ -34,6 +35,9 @@ function Sidebar({ onNavigate }: { onNavigate: () => void }) {
         { to: '/campaigns', label: 'Campaigns', icon: 'megaphone' },
         { to: '/social', label: 'Social Planner', icon: 'share' },
         { to: '/prospecting', label: 'Prospecting', icon: 'target' },
+        { to: '/templates', label: 'Email Templates', icon: 'mail' },
+        { to: '/links', label: 'Trigger Links', icon: 'link' },
+        { to: '/affiliates', label: 'Affiliates', icon: 'users' },
         { to: '/media', label: 'Media Library', icon: 'image' },
         { to: '/reporting', label: 'Reporting', icon: 'chart' },
       ],
@@ -44,6 +48,9 @@ function Sidebar({ onNavigate }: { onNavigate: () => void }) {
         { to: '/funnels', label: 'Funnels', icon: 'funnel' },
         { to: '/websites', label: 'Websites', icon: 'globe' },
         { to: '/forms', label: 'Forms & Surveys', icon: 'clipboard' },
+        { to: '/blogs', label: 'Blogs', icon: 'file' },
+        { to: '/qr-codes', label: 'QR Codes', icon: 'qr' },
+        { to: '/portal', label: 'Client Portal', icon: 'globe' },
       ],
     },
     {
@@ -54,6 +61,8 @@ function Sidebar({ onNavigate }: { onNavigate: () => void }) {
       label: 'Commerce',
       items: [
         { to: '/payments', label: 'Payments', icon: 'wallet' },
+        { to: '/orders', label: 'Orders', icon: 'clipboard' },
+        { to: '/subscriptions', label: 'Subscriptions', icon: 'repeat' },
         { to: '/documents', label: 'Contracts', icon: 'file' },
       ],
     },

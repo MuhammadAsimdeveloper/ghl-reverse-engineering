@@ -79,7 +79,7 @@ src/
 
 There is no backend. `StoreProvider` holds the whole workspace in a `useReducer`, and every
 action returns a new immutable state. The state is mirrored into `localStorage` under
-`ghl-lite.workspace.v1` after each change, so your edits survive a refresh. **Settings → Workspace
+`ghl-lite.workspace.v2` after each change, so your edits survive a refresh. **Settings → Workspace
 data → Reset** restores the seed.
 
 To add a field or entity:
