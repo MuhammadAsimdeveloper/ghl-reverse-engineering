@@ -1,12 +1,62 @@
+import { useState } from 'react';
 import { Icon } from '../components/Icon';
+import { Modal } from '../components/Modal';
 import { Avatar, Badge, PageHeader, StatCard } from '../components/ui';
-import { BarChart, Donut, LineChart } from '../components/Chart';
-import { useStore } from '../lib/store';
+import { BarChart, Donut, LineChart, Spark } from '../components/Chart';
+import { uid, useStore } from '../lib/store';
 import { currency, num, pct } from '../lib/format';
+import type { ReportMetric, ReportRange, SavedReport, WorkspaceState } from '../lib/types';
+
+const METRIC_META: Record<ReportMetric, { label: string; color: string; money: boolean }> = {
+  revenue: { label: 'Collected revenue', color: '#10b981', money: true },
+  pipeline: { label: 'Pipeline value', color: '#4f46e5', money: true },
+  deals: { label: 'Deals won', color: '#0ea5e9', money: false },
+  contacts: { label: 'New contacts', color: '#f59e0b', money: false },
+};
+
+const RANGE_OPTIONS: ReportRange[] = [30, 90, 180];
+const DAY = 86_400_000;
+
+/** Metric total for [from, to) using record timestamps. */
+function metricInRange(state: WorkspaceState, metric: ReportMetric, from: number, to: number): number {
+  const within = (iso: string) => {
+    const t = new Date(iso).getTime();
+    return t >= from && t < to;
+  };
+  switch (metric) {
+    case 'revenue':
+      return state.invoices
+        .filter((i) => i.status === 'paid' && within(i.issuedAt))
+        .reduce((s, i) => s + i.amount, 0);
+    case 'pipeline':
+      return state.opportunities.filter((o) => within(o.createdAt)).reduce((s, o) => s + o.value, 0);
+    case 'deals':
+      return state.opportunities.filter((o) => o.status === 'won' && within(o.createdAt)).length;
+    case 'contacts':
+      return state.contacts.filter((c) => within(c.createdAt)).length;
+  }
+}
+
+function reportSnapshot(state: WorkspaceState, report: SavedReport) {
+  const end = Date.now();
+  const span = report.rangeDays * DAY;
+  const current = metricInRange(state, report.metric, end - span, end);
+  const previous = metricInRange(state, report.metric, end - 2 * span, end - span);
+  const buckets = Array.from({ length: 6 }, (_, i) =>
+    metricInRange(state, report.metric, end - span + (span / 6) * i, end - span + (span / 6) * (i + 1)),
+  );
+  const delta = previous === 0 ? (current > 0 ? null : 0) : (current - previous) / previous;
+  return { current, previous, delta, buckets };
+}
+
+function formatMetric(metric: ReportMetric, value: number): string {
+  return METRIC_META[metric].money ? currency(Math.round(value)) : num(value);
+}
 
 export default function Reporting() {
-  const { state } = useStore();
-  const { invoices, opportunities, contacts, campaigns, team } = state;
+  const { state, dispatch } = useStore();
+  const { invoices, opportunities, contacts, campaigns, team, savedReports } = state;
+  const [creating, setCreating] = useState(false);
 
   const collected = invoices.filter((i) => i.status === 'paid').reduce((s, i) => s + i.amount, 0);
   const won = opportunities.filter((o) => o.status === 'won');
@@ -76,8 +126,8 @@ export default function Reporting() {
             <button className="btn">
               <Icon name="filter" size={15} /> Last 6 months
             </button>
-            <button className="btn btn--primary">
-              <Icon name="copy" size={15} /> Export
+            <button className="btn btn--primary" onClick={() => setCreating(true)}>
+              <Icon name="plus" size={15} /> New report
             </button>
           </>
         }
@@ -88,6 +138,74 @@ export default function Reporting() {
         <StatCard label="Won value" value={currency(wonValue)} icon={<Icon name="check" size={15} />} trend={{ direction: 'up', value: '6.8%' }} meta={`${won.length} deals`} />
         <StatCard label="Win rate" value={pct(won.length, closed.length || 1)} icon={<Icon name="chart" size={15} />} meta={`${closed.length} closed deals`} />
         <StatCard label="Email open rate" value={pct(Math.round(openRate * 100), 100)} icon={<Icon name="mail" size={15} />} meta={`${sent.length} campaigns`} />
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card__head">
+          <div>
+            <div className="card__title">Saved reports</div>
+            <div className="card__sub">Each card recomputes from live workspace data</div>
+          </div>
+          <div className="card__actions">
+            <Badge>{savedReports.length} saved</Badge>
+          </div>
+        </div>
+        <div className="card__body">
+          {savedReports.length === 0 ? (
+            <div className="hint">No saved reports yet — create one to pin a metric and range.</div>
+          ) : (
+            <div className="grid grid--4">
+              {savedReports.map((report) => {
+                const meta = METRIC_META[report.metric];
+                const { current, delta, buckets } = reportSnapshot(state, report);
+                return (
+                  <div
+                    key={report.id}
+                    className="stack"
+                    style={{
+                      gap: 8,
+                      border: '1px solid var(--line)',
+                      borderRadius: 10,
+                      padding: 12,
+                      background: 'var(--surface-2)',
+                    }}
+                  >
+                    <div className="row row--between" style={{ gap: 6 }}>
+                      <strong style={{ fontSize: 13 }}>{report.name}</strong>
+                      <button
+                        type="button"
+                        className="icon-btn"
+                        aria-label={`Delete ${report.name}`}
+                        onClick={() => dispatch({ type: 'report/delete', id: report.id })}
+                      >
+                        <Icon name="trash" size={14} />
+                      </button>
+                    </div>
+                    <div className="cell-sub">
+                      {meta.label} · {report.rangeDays} days
+                    </div>
+                    <div className="row row--between" style={{ alignItems: 'flex-end', gap: 6 }}>
+                      <span style={{ fontSize: 20, fontWeight: 680, letterSpacing: '-0.02em' }}>
+                        {formatMetric(report.metric, current)}
+                      </span>
+                      <Spark values={buckets} color={meta.color} />
+                    </div>
+                    <div className="cell-sub">
+                      {delta === null ? (
+                        <span style={{ color: 'var(--green)' }}>New in this period</span>
+                      ) : (
+                        <span style={{ color: delta >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                          {delta >= 0 ? '▲' : '▼'} {Math.abs(Math.round(delta * 100))}%
+                        </span>
+                      )}{' '}
+                      vs. previous {report.rangeDays} days
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
@@ -209,6 +327,99 @@ export default function Reporting() {
           </table>
         </div>
       </div>
+
+      {creating && <ReportModal onClose={() => setCreating(false)} />}
     </div>
+  );
+}
+
+function ReportModal({ onClose }: { onClose: () => void }) {
+  const { dispatch } = useStore();
+  const [name, setName] = useState('');
+  const [metric, setMetric] = useState<ReportMetric>('revenue');
+  const [rangeDays, setRangeDays] = useState<ReportRange>(30);
+
+  const canSave = name.trim().length > 0;
+
+  const save = () => {
+    if (!canSave) return;
+    dispatch({
+      type: 'report/add',
+      report: {
+        id: uid('rp'),
+        name: name.trim(),
+        metric,
+        rangeDays,
+        createdAt: new Date().toISOString(),
+      },
+    });
+    onClose();
+  };
+
+  return (
+    <Modal
+      title="New saved report"
+      onClose={onClose}
+      footer={
+        <>
+          <button className="btn" type="button" onClick={onClose}>
+            Cancel
+          </button>
+          <button className="btn btn--primary" type="button" disabled={!canSave} onClick={save}>
+            Save report
+          </button>
+        </>
+      }
+    >
+      <div className="stack" style={{ gap: 12 }}>
+        <div className="field">
+          <label htmlFor="report-name">Report name</label>
+          <input
+            id="report-name"
+            className="input"
+            autoFocus
+            placeholder="Q4 revenue pulse"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+        <div className="grid grid--2">
+          <div className="field">
+            <label htmlFor="report-metric">Metric</label>
+            <select
+              id="report-metric"
+              className="select"
+              value={metric}
+              onChange={(e) => setMetric(e.target.value as ReportMetric)}
+            >
+              {(Object.keys(METRIC_META) as ReportMetric[]).map((m) => (
+                <option key={m} value={m}>
+                  {METRIC_META[m].label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="report-range">Range</label>
+            <select
+              id="report-range"
+              className="select"
+              value={rangeDays}
+              onChange={(e) => setRangeDays(Number(e.target.value) as ReportRange)}
+            >
+              {RANGE_OPTIONS.map((r) => (
+                <option key={r} value={r}>
+                  Last {r} days
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="hint">
+          Values are computed from invoices, opportunities and contacts inside the selected window,
+          with the previous window shown as a delta.
+        </div>
+      </div>
+    </Modal>
   );
 }

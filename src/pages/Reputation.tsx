@@ -1,8 +1,15 @@
 import { useMemo, useState } from 'react';
 import { Icon } from '../components/Icon';
+import { Modal } from '../components/Modal';
 import { Avatar, Badge, EmptyState, PageHeader, StatCard, Switch } from '../components/ui';
-import { useStore } from '../lib/store';
-import { fullDate, num, relative } from '../lib/format';
+import { useStore, uid } from '../lib/store';
+import { resolveMerge } from '../lib/merge';
+import { fullDate, num, relative, shortDate, timeOf, toDateTimeInput } from '../lib/format';
+import type { ReviewRequest, ReviewRequestChannel } from '../lib/types';
+
+const REVIEW_LINK = 'https://g.page/r/asim-growth/review';
+const DEFAULT_MESSAGE =
+  'Hi {{contact.first_name}}, thanks for working with us! Would you leave a quick review? {{custom_values.review_link}}';
 
 const SOURCE_META = {
   google: { label: 'Google', icon: 'google' },
@@ -26,14 +33,41 @@ type Filter = 'all' | 'new' | 'replied' | 'flagged';
 
 export default function Reputation() {
   const { state, dispatch } = useStore();
-  const { reviews, listings } = state;
+  const { reviews, listings, reviewRequests } = state;
   const [filter, setFilter] = useState<Filter>('all');
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
+  const [requesting, setRequesting] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const avg = reviews.length ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : 0;
   const replied = reviews.filter((r) => r.status === 'replied').length;
   const pending = reviews.filter((r) => r.status === 'new').length;
+  const sentRequests = reviewRequests.filter((r) => r.sentAt).length;
+  const queuedRequests = reviewRequests.length - sentRequests;
+
+  const copyReviewLink = async () => {
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(REVIEW_LINK);
+      copied = true;
+    } catch {
+      const el = document.createElement('textarea');
+      el.value = REVIEW_LINK;
+      el.style.position = 'fixed';
+      el.style.opacity = '0';
+      document.body.appendChild(el);
+      el.select();
+      try {
+        copied = document.execCommand('copy');
+      } catch {
+        copied = false;
+      }
+      el.remove();
+    }
+    setLinkCopied(copied);
+    if (copied) setTimeout(() => setLinkCopied(false), 2000);
+  };
 
   const distribution = useMemo(
     () =>
@@ -67,10 +101,10 @@ export default function Reputation() {
         subtitle="Collect reviews, reply to feedback and watch your listings."
         actions={
           <>
-            <button className="btn">
-              <Icon name="link" size={15} /> Review link
+            <button className="btn" onClick={copyReviewLink}>
+              <Icon name={linkCopied ? 'check' : 'link'} size={15} /> {linkCopied ? 'Link copied' : 'Review link'}
             </button>
-            <button className="btn btn--primary">
+            <button className="btn btn--primary" onClick={() => setRequesting(true)}>
               <Icon name="send" size={15} /> Request reviews
             </button>
           </>
@@ -98,10 +132,9 @@ export default function Reputation() {
         />
         <StatCard
           label="Requests sent"
-          value={num(240)}
+          value={num(sentRequests)}
           icon={<Icon name="send" size={15} />}
-          trend={{ direction: 'up', value: '18%' }}
-          meta="last 30 days"
+          meta={`${queuedRequests} scheduled`}
         />
       </div>
 
@@ -178,6 +211,106 @@ export default function Reputation() {
             </table>
           </div>
         </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card__head">
+          <div>
+            <div className="card__title">Review requests</div>
+            <div className="card__sub">
+              {sentRequests} sent · {queuedRequests} scheduled
+            </div>
+          </div>
+          <div className="card__actions">
+            <button className="btn btn--sm" onClick={() => setRequesting(true)}>
+              <Icon name="plus" size={14} /> New request
+            </button>
+          </div>
+        </div>
+        {reviewRequests.length === 0 ? (
+          <div className="card__body">
+            <EmptyState
+              icon={<Icon name="send" size={22} />}
+              title="No requests yet"
+              text="Ask a happy customer for a review."
+            />
+          </div>
+        ) : (
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Recipient</th>
+                  <th>Channel</th>
+                  <th>Message</th>
+                  <th>Scheduled</th>
+                  <th>Status</th>
+                  <th className="cell-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...reviewRequests]
+                  .sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt))
+                  .map((request) => {
+                    const contact = state.contacts.find((c) => c.id === request.contactId);
+                    const preview = resolveMerge(request.message, contact, state.customValues);
+                    const recipient = contact ? `${contact.firstName} ${contact.lastName}` : 'Unknown contact';
+                    return (
+                      <tr key={request.id}>
+                        <td style={{ fontWeight: 600 }}>{recipient}</td>
+                        <td>
+                          <span className="row" style={{ gap: 6 }}>
+                            <Icon name={request.channel === 'email' ? 'mail' : 'message'} size={14} />
+                            {request.channel === 'email' ? 'Email' : 'SMS'}
+                          </span>
+                        </td>
+                        <td className="cell-sub" style={{ maxWidth: 300 }}>
+                          <span title={preview}>
+                            {preview.length > 64 ? `${preview.slice(0, 64)}…` : preview}
+                          </span>
+                        </td>
+                        <td className="cell-sub">
+                          {shortDate(request.scheduledAt)} · {timeOf(request.scheduledAt)}
+                        </td>
+                        <td>
+                          {request.sentAt ? (
+                            <Badge tone="green" dot>
+                              Sent
+                            </Badge>
+                          ) : (
+                            <Badge tone="violet" dot>
+                              Scheduled
+                            </Badge>
+                          )}
+                        </td>
+                        <td className="cell-right">
+                          <span className="row" style={{ gap: 4, justifyContent: 'flex-end' }}>
+                            {!request.sentAt && (
+                              <button
+                                type="button"
+                                className="btn btn--ghost btn--sm"
+                                onClick={() => dispatch({ type: 'reviewRequest/send', id: request.id })}
+                              >
+                                <Icon name="send" size={13} /> Send now
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              className="icon-btn"
+                              aria-label={`Delete request for ${recipient}`}
+                              onClick={() => dispatch({ type: 'reviewRequest/delete', id: request.id })}
+                            >
+                              <Icon name="trash" size={14} />
+                            </button>
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <div className="card">
@@ -298,6 +431,145 @@ export default function Reputation() {
           </div>
         )}
       </div>
+
+      {requesting && <RequestModal onClose={() => setRequesting(false)} />}
     </div>
+  );
+}
+
+function RequestModal({ onClose }: { onClose: () => void }) {
+  const { state, dispatch } = useStore();
+  const contacts = state.contacts;
+  const [contactId, setContactId] = useState(
+    contacts.find((c) => c.status === 'customer')?.id ?? contacts[0]?.id ?? '',
+  );
+  const [channel, setChannel] = useState<ReviewRequestChannel>('email');
+  const [message, setMessage] = useState(DEFAULT_MESSAGE);
+  const [timing, setTiming] = useState<'now' | 'later'>('later');
+  const [when, setWhen] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    d.setHours(9, 0, 0, 0);
+    return toDateTimeInput(d);
+  });
+
+  const contact = contacts.find((c) => c.id === contactId);
+  const preview = resolveMerge(message, contact, state.customValues);
+  const scheduleValid = timing === 'now' || !Number.isNaN(new Date(when).getTime());
+  const canSend = Boolean(contact) && message.trim().length > 0 && scheduleValid;
+
+  const submit = () => {
+    if (!canSend) return;
+    const request: ReviewRequest = {
+      id: uid('rr'),
+      contactId,
+      channel,
+      message: message.trim(),
+      scheduledAt: timing === 'now' ? new Date().toISOString() : new Date(when).toISOString(),
+    };
+    dispatch({ type: 'reviewRequest/add', request });
+    if (timing === 'now') dispatch({ type: 'reviewRequest/send', id: request.id });
+    onClose();
+  };
+
+  return (
+    <Modal
+      title="Request a review"
+      onClose={onClose}
+      footer={
+        <>
+          <button className="btn" type="button" onClick={onClose}>
+            Cancel
+          </button>
+          <button className="btn btn--primary" type="button" disabled={!canSend} onClick={submit}>
+            <Icon name="send" size={14} /> {timing === 'now' ? 'Send request' : 'Schedule request'}
+          </button>
+        </>
+      }
+    >
+      <div className="stack" style={{ gap: 12 }}>
+        <div className="field">
+          <label htmlFor="rr-contact">Recipient</label>
+          <select
+            id="rr-contact"
+            className="select"
+            value={contactId}
+            onChange={(e) => setContactId(e.target.value)}
+          >
+            {contacts.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.firstName} {c.lastName} — {c.email}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="row" style={{ gap: 12, alignItems: 'flex-end' }}>
+          <div className="field" style={{ flex: 1 }}>
+            <label>Channel</label>
+            <div className="segmented">
+              {(['email', 'sms'] as ReviewRequestChannel[]).map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  className={channel === c ? 'is-active' : ''}
+                  onClick={() => setChannel(c)}
+                >
+                  {c === 'email' ? 'Email' : 'SMS'}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="field" style={{ flex: 1 }}>
+            <label>When</label>
+            <div className="segmented">
+              {(['later', 'now'] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  className={timing === t ? 'is-active' : ''}
+                  onClick={() => setTiming(t)}
+                >
+                  {t === 'now' ? 'Send now' : 'Schedule'}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {timing === 'later' && (
+          <div className="field">
+            <label htmlFor="rr-when">Send at</label>
+            <input
+              id="rr-when"
+              className="input"
+              type="datetime-local"
+              value={when}
+              onChange={(e) => setWhen(e.target.value)}
+            />
+          </div>
+        )}
+
+        <div className="field">
+          <label htmlFor="rr-message">Message</label>
+          <textarea
+            id="rr-message"
+            className="input"
+            rows={4}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+          />
+          <div className="hint">
+            Tokens resolve per recipient: <code>{'{{contact.first_name}}'}</code>,{' '}
+            <code>{'{{custom_values.review_link}}'}</code>
+          </div>
+        </div>
+
+        <div className="callout" style={{ fontSize: 12.5 }}>
+          <strong style={{ display: 'block', marginBottom: 4 }}>Preview</strong>
+          {preview}
+        </div>
+      </div>
+    </Modal>
   );
 }

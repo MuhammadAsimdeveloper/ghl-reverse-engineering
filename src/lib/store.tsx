@@ -26,7 +26,11 @@ import type {
   PaymentLink,
   Product,
   QrCode,
+  ReviewRequest,
   SaasPlan,
+  SavedReport,
+  Site,
+  SitePage,
   SmartList,
   Snippet,
   SocialPost,
@@ -38,7 +42,7 @@ import type {
   Workflow,
 } from './types';
 
-const STORAGE_KEY = 'ghl-lite.workspace.v6';
+const STORAGE_KEY = 'ghl-lite.workspace.v7';
 
 export function uid(prefix = 'id'): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
@@ -88,6 +92,16 @@ export type Action =
   | { type: 'post/add'; post: SocialPost }
   | { type: 'post/status'; id: string; status: SocialPost['status'] }
   | { type: 'site/toggle'; id: string }
+  | { type: 'site/step/add'; siteId: string; page: SitePage }
+  | { type: 'site/step/update'; siteId: string; id: string; patch: Partial<SitePage> }
+  | { type: 'site/step/move'; siteId: string; id: string; direction: 'up' | 'down' }
+  | { type: 'site/step/delete'; siteId: string; id: string }
+  | { type: 'site/duplicate'; copy: Site }
+  | { type: 'report/add'; report: SavedReport }
+  | { type: 'report/delete'; id: string }
+  | { type: 'reviewRequest/add'; request: ReviewRequest }
+  | { type: 'reviewRequest/send'; id: string }
+  | { type: 'reviewRequest/delete'; id: string }
   | { type: 'form/toggle'; id: string }
   | { type: 'workflow/toggle'; id: string }
   | { type: 'workflow/add'; workflow: Workflow }
@@ -137,6 +151,7 @@ function pruneContacts(state: WorkspaceState, ids: Set<string>): WorkspaceState 
     invoices: state.invoices.filter((i) => keep(i.contactId)),
     enrollments: state.enrollments.filter((e) => keep(e.contactId)),
     reviews: state.reviews.filter((r) => keep(r.contactId)),
+    reviewRequests: state.reviewRequests.filter((r) => keep(r.contactId)),
     documents: state.documents.filter((d) => keep(d.contactId)),
     orders: state.orders.filter((o) => keep(o.contactId)),
     subscriptions: state.subscriptions.filter((s) => keep(s.contactId)),
@@ -375,6 +390,75 @@ function applyAction(state: WorkspaceState, action: Action): WorkspaceState {
       return {
         ...state,
         sites: state.sites.map((s) => (s.id === action.id ? { ...s, published: !s.published } : s)),
+      };
+
+    case 'site/step/add':
+      return {
+        ...state,
+        sites: state.sites.map((s) =>
+          s.id === action.siteId ? { ...s, pages: [...s.pages, action.page] } : s,
+        ),
+      };
+
+    case 'site/step/update':
+      return {
+        ...state,
+        sites: state.sites.map((s) =>
+          s.id === action.siteId
+            ? {
+                ...s,
+                pages: s.pages.map((p) => (p.id === action.id ? { ...p, ...action.patch } : p)),
+              }
+            : s,
+        ),
+      };
+
+    case 'site/step/move':
+      return {
+        ...state,
+        sites: state.sites.map((s) => {
+          if (s.id !== action.siteId) return s;
+          const idx = s.pages.findIndex((p) => p.id === action.id);
+          const target = action.direction === 'up' ? idx - 1 : idx + 1;
+          if (idx < 0 || target < 0 || target >= s.pages.length) return s;
+          const pages = [...s.pages];
+          [pages[idx], pages[target]] = [pages[target], pages[idx]];
+          return { ...s, pages };
+        }),
+      };
+
+    case 'site/step/delete':
+      return {
+        ...state,
+        sites: state.sites.map((s) =>
+          s.id === action.siteId ? { ...s, pages: s.pages.filter((p) => p.id !== action.id) } : s,
+        ),
+      };
+
+    case 'site/duplicate':
+      return { ...state, sites: [action.copy, ...state.sites] };
+
+    case 'report/add':
+      return { ...state, savedReports: [action.report, ...state.savedReports] };
+
+    case 'report/delete':
+      return { ...state, savedReports: state.savedReports.filter((r) => r.id !== action.id) };
+
+    case 'reviewRequest/add':
+      return { ...state, reviewRequests: [action.request, ...state.reviewRequests] };
+
+    case 'reviewRequest/send':
+      return {
+        ...state,
+        reviewRequests: state.reviewRequests.map((r) =>
+          r.id === action.id ? { ...r, sentAt: new Date().toISOString() } : r,
+        ),
+      };
+
+    case 'reviewRequest/delete':
+      return {
+        ...state,
+        reviewRequests: state.reviewRequests.filter((r) => r.id !== action.id),
       };
 
     case 'form/toggle':
@@ -916,6 +1000,71 @@ function auditMeta(
         entity: 'Reputation',
         detail: contactName(byId(state.reviews, action.id)?.contactId ?? ''),
       };
+    case 'reviewRequest/add':
+      return {
+        action: 'Review request scheduled',
+        entity: 'Reputation',
+        detail: contactName(action.request.contactId),
+      };
+    case 'reviewRequest/send': {
+      const request = byId(state.reviewRequests, action.id);
+      return {
+        action: 'Review request sent',
+        entity: 'Reputation',
+        detail: request ? contactName(request.contactId) : undefined,
+      };
+    }
+    case 'reviewRequest/delete': {
+      const request = byId(state.reviewRequests, action.id);
+      return {
+        action: 'Review request deleted',
+        entity: 'Reputation',
+        detail: request ? contactName(request.contactId) : undefined,
+      };
+    }
+    case 'report/add':
+      return { action: 'Report saved', entity: 'Reporting', detail: action.report.name };
+    case 'report/delete':
+      return {
+        action: 'Report deleted',
+        entity: 'Reporting',
+        detail: byId(state.savedReports, action.id)?.name,
+      };
+    case 'site/step/add': {
+      const site = byId(state.sites, action.siteId);
+      return {
+        action: 'Funnel step added',
+        entity: 'Funnel',
+        detail: site ? `${site.name} · ${action.page.name}` : action.page.name,
+      };
+    }
+    case 'site/step/update': {
+      const site = byId(state.sites, action.siteId);
+      const page = site?.pages.find((p) => p.id === action.id);
+      return {
+        action: 'Funnel step updated',
+        entity: 'Funnel',
+        detail: site ? `${site.name} · ${action.patch.name ?? page?.name ?? ''}` : action.patch.name,
+      };
+    }
+    case 'site/step/move': {
+      const site = byId(state.sites, action.siteId);
+      return {
+        action: 'Funnel step reordered',
+        entity: 'Funnel',
+        detail: site ? `${site.name} · ${site.pages.find((p) => p.id === action.id)?.name ?? ''}` : undefined,
+      };
+    }
+    case 'site/step/delete': {
+      const site = byId(state.sites, action.siteId);
+      return {
+        action: 'Funnel step removed',
+        entity: 'Funnel',
+        detail: site ? `${site.name} · ${site.pages.find((p) => p.id === action.id)?.name ?? ''}` : undefined,
+      };
+    }
+    case 'site/duplicate':
+      return { action: 'Funnel duplicated', entity: 'Funnel', detail: action.copy.name };
     case 'review/status':
       return {
         action: `Review marked ${action.status}`,

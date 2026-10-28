@@ -343,6 +343,7 @@ export const seed: WorkspaceState = {
     { id: 'i6', number: 'INV-1046', contactId: 'c5', amount: 4000, status: 'sent', issuedAt: day(-2) },
     { id: 'i7', number: 'INV-1037', contactId: 'c2', amount: 1800, status: 'paid', issuedAt: day(-96) },
     { id: 'i8', number: 'INV-1040', contactId: 'c6', amount: 950, status: 'overdue', issuedAt: day(-61) },
+    { id: 'i9', number: 'INV-1047', contactId: 'c5', amount: 1200, status: 'paid', issuedAt: day(-6) },
   ],
 
   products: [
@@ -374,34 +375,34 @@ export const seed: WorkspaceState = {
     {
       id: 'f1', name: 'Growth Package Funnel', kind: 'funnel', published: true, visits: 18420, optins: 1180,
       pages: [
-        { id: 'fp1', name: 'Landing', path: '/' },
-        { id: 'fp2', name: 'VSL', path: '/watch' },
-        { id: 'fp3', name: 'Booking', path: '/book' },
-        { id: 'fp4', name: 'Thank You', path: '/thanks' },
+        { id: 'fp1', name: 'Landing', path: '/', visits: 18420, optins: 1180 },
+        { id: 'fp2', name: 'VSL', path: '/watch', visits: 11240, optins: 980 },
+        { id: 'fp3', name: 'Booking', path: '/book', visits: 6840, optins: 760 },
+        { id: 'fp4', name: 'Thank You', path: '/thanks', visits: 4120, optins: 0 },
       ],
     },
     {
       id: 'f2', name: 'Webinar Registration', kind: 'funnel', published: true, visits: 9240, optins: 2140,
       pages: [
-        { id: 'fp5', name: 'Registration', path: '/' },
-        { id: 'fp6', name: 'Replay', path: '/replay' },
+        { id: 'fp5', name: 'Registration', path: '/', visits: 9240, optins: 2140 },
+        { id: 'fp6', name: 'Replay', path: '/replay', visits: 6310, optins: 240 },
       ],
     },
     {
       id: 'w1', name: 'Agency Homepage', kind: 'website', published: true, visits: 33100, optins: 402,
       pages: [
-        { id: 'wp1', name: 'Home', path: '/' },
-        { id: 'wp2', name: 'Services', path: '/services' },
-        { id: 'wp3', name: 'About', path: '/about' },
-        { id: 'wp4', name: 'Contact', path: '/contact' },
-        { id: 'wp5', name: 'Blog', path: '/blog' },
+        { id: 'wp1', name: 'Home', path: '/', visits: 33100, optins: 402 },
+        { id: 'wp2', name: 'Services', path: '/services', visits: 18400, optins: 0 },
+        { id: 'wp3', name: 'About', path: '/about', visits: 9100, optins: 0 },
+        { id: 'wp4', name: 'Contact', path: '/contact', visits: 5200, optins: 0 },
+        { id: 'wp5', name: 'Blog', path: '/blog', visits: 12800, optins: 0 },
       ],
     },
     {
       id: 'f3', name: 'Free Audit Offer', kind: 'funnel', published: false, visits: 0, optins: 0,
       pages: [
-        { id: 'fp7', name: 'Landing', path: '/' },
-        { id: 'fp8', name: 'Thank You', path: '/thanks' },
+        { id: 'fp7', name: 'Landing', path: '/', visits: 0, optins: 0 },
+        { id: 'fp8', name: 'Thank You', path: '/thanks', visits: 0, optins: 0 },
       ],
     },
   ],
@@ -517,6 +518,41 @@ export const seed: WorkspaceState = {
     { id: 'ls1', name: 'Asim Growth Agency', source: 'google', connected: true, rating: 4.8, reviews: 128 },
     { id: 'ls2', name: 'Asim Growth Agency', source: 'facebook', connected: true, rating: 4.6, reviews: 74 },
     { id: 'ls3', name: 'Asim Growth Agency', source: 'yelp', connected: false, rating: 4.1, reviews: 19 },
+  ],
+
+  reviewRequests: [
+    {
+      id: 'rr1', contactId: 'c7', channel: 'email',
+      message: 'Hi {{contact.first_name}}, thanks for the great month! Would you leave us a quick review? {{custom_values.review_link}}',
+      scheduledAt: day(-12, 9), sentAt: day(-12, 9),
+    },
+    {
+      id: 'rr2', contactId: 'c5', channel: 'sms',
+      message: '{{contact.first_name}}, it’s Asim from the agency — mind sharing a quick review? {{custom_values.review_link}}',
+      scheduledAt: day(-9, 15), sentAt: day(-9, 15),
+    },
+    {
+      id: 'rr3', contactId: 'c2', channel: 'email',
+      message: 'Hi {{contact.full_name}}, your retainer renewal means a lot. A short review helps other studios find us: {{custom_values.review_link}}',
+      scheduledAt: day(-3, 10), sentAt: day(-3, 10),
+    },
+    {
+      id: 'rr4', contactId: 'c11', channel: 'email',
+      message: 'Hey {{contact.first_name}}, loved working on speed-to-lead with you. Could you drop a review here? {{custom_values.review_link}}',
+      scheduledAt: day(1, 9),
+    },
+    {
+      id: 'rr5', contactId: 'c1', channel: 'sms',
+      message: '{{contact.first_name}}, thanks for the call today! If we earned it, a quick review would mean a lot: {{custom_values.review_link}}',
+      scheduledAt: day(3, 11),
+    },
+  ],
+
+  savedReports: [
+    { id: 'rp1', name: 'Revenue pulse', metric: 'revenue', rangeDays: 30, createdAt: day(-21) },
+    { id: 'rp2', name: 'Pipeline created', metric: 'pipeline', rangeDays: 90, createdAt: day(-14) },
+    { id: 'rp3', name: 'Deals won', metric: 'deals', rangeDays: 90, createdAt: day(-7) },
+    { id: 'rp4', name: 'New contacts', metric: 'contacts', rangeDays: 180, createdAt: day(-2) },
   ],
 
   courses: [
@@ -1060,6 +1096,7 @@ export const seed: WorkspaceState = {
     { id: 'cv4', name: 'Office phone', value: '+1 (415) 555-0100' },
     { id: 'cv5', name: 'Email signature', value: 'Asim R. — Asim Growth Agency' },
     { id: 'cv6', name: 'Trial length', value: '14 days' },
+    { id: 'cv7', name: 'Review link', value: 'https://g.page/r/asim-growth/review' },
   ],
 
   auditLog: [

@@ -41,7 +41,7 @@ npm run typecheck  # types only
 | Contact detail | `/contacts/:id` | Profile tabs, notes, tasks, deals, invoices, delete flow |
 | Tasks | `/tasks` | Overdue/today/upcoming groups, completion toggle, priorities, assignees |
 | Opportunities | `/opportunities` | Kanban board with drag-and-drop between stages |
-| Reputation | `/reputation` | Review feed, star ratings, inline replies, listing sync |
+| Reputation | `/reputation` | Review feed, inline replies, listing sync, review-request composer with token preview |
 | Payments | `/payments` | Invoices with inline status, products, totals |
 | Products & Price Book | `/products` | One-time/recurring items, inline toggles, add + edit pricing |
 | Payment Links | `/payment-links` | Product bundles, copy link, visit/conversion metrics |
@@ -53,12 +53,12 @@ npm run typecheck  # types only
 | Social Planner | `/social` | Draft → scheduled → published board, post composer |
 | Prospecting | `/prospecting` | Scored prospect table, filters, one-click import to contacts |
 | Media Library | `/media` | Folder/type filters, asset grid, upload + delete |
-| Funnels | `/funnels` | Funnel cards, step paths, publish toggle, builder modal |
+| Funnels | `/funnels` | Editable step builder (rename, reorder, per-step opt-in rate), duplicate, publish toggle |
 | Websites | `/websites` | Site pages, per-page stats, preview modal |
 | Forms & Surveys | `/forms` | Type tabs, submission counts, live toggles |
 | Workflows | `/workflows` | Automation list + step-by-step flow diagram |
 | Memberships | `/memberships` | Course/community offers, lesson curriculum with per-lesson drip days, unlock counts |
-| Reporting | `/reporting` | Multi-series charts, source breakdown, team table |
+| Reporting | `/reporting` | Multi-series charts, saveable metric reports with prior-period deltas, team table |
 | Settings | `/settings` | Business profile, team roles, custom fields, integrations, reset |
 | Sub-accounts | `/sub-accounts` | Agency-level client accounts, plan catalog, seat/contact limits, derived MRR |
 
@@ -88,14 +88,17 @@ src/
 
 There is no backend. `StoreProvider` holds the whole workspace in a `useReducer`, and every
 action returns a new immutable state. The state is mirrored into `localStorage` under
-`ghl-lite.workspace.v6` after each change, so your edits survive a refresh. **Settings → Workspace
+`ghl-lite.workspace.v7` after each change, so your edits survive a refresh. **Settings → Workspace
 data → Reset** restores the seed. A derived audit log records every logged mutation, and
 snippets resolve `{{contact.*}}` and `{{custom_values.*}}` tokens when inserted into a reply.
 
 Sub-account MRR is not stored: it is derived from the plan's price whenever the account status is
 `active`, so editing a plan in the sidebar immediately reprices every account on it. Drip content
 works the same way — a lesson's `dripDays` is compared with the days elapsed since the member
-enrolled, so an unlock count is always computed rather than persisted.
+enrolled, so an unlock count is always computed rather than persisted. Saved reports and review
+requests follow the same rule: report values are computed from invoice, opportunity and contact
+timestamps for the chosen window, and request messages store raw merge tokens that resolve at
+render time.
 
 To add a field or entity:
 

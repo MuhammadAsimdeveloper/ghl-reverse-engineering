@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { Icon } from '../components/Icon';
 import { Modal } from '../components/Modal';
 import { Badge, PageHeader, StatCard, StatusBadge, Switch } from '../components/ui';
-import { useStore } from '../lib/store';
+import { uid, useStore } from '../lib/store';
 import { num, pct } from '../lib/format';
-import type { Site } from '../lib/types';
+import type { Site, SitePage } from '../lib/types';
 
 const BANNERS = [
   'linear-gradient(135deg, #4f46e5, #7c3aed)',
@@ -13,10 +13,18 @@ const BANNERS = [
   'linear-gradient(135deg, #f59e0b, #ea580c)',
 ];
 
+function slugPath(name: string): string {
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return slug ? `/${slug}` : '/';
+}
+
 export default function Funnels() {
   const { state, dispatch } = useStore();
   const [filter, setFilter] = useState<'all' | 'published' | 'draft'>('all');
-  const [editing, setEditing] = useState<Site | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const funnels = state.sites.filter((s) => s.kind === 'funnel');
   const rows = funnels.filter((f) => {
@@ -24,9 +32,25 @@ export default function Funnels() {
     if (filter === 'draft') return !f.published;
     return true;
   });
+  const editing = funnels.find((f) => f.id === editingId) ?? null;
 
   const visits = funnels.reduce((s, f) => s + f.visits, 0);
   const optins = funnels.reduce((s, f) => s + f.optins, 0);
+
+  const duplicate = (funnel: Site) => {
+    dispatch({
+      type: 'site/duplicate',
+      copy: {
+        ...funnel,
+        id: uid('f'),
+        name: `${funnel.name} copy`,
+        published: false,
+        visits: 0,
+        optins: 0,
+        pages: funnel.pages.map((page) => ({ ...page, id: uid('fp'), visits: 0, optins: 0 })),
+      },
+    });
+  };
 
   return (
     <div className="content">
@@ -91,10 +115,10 @@ export default function Funnels() {
                 ))}
               </div>
               <div className="row" style={{ gap: 8, marginTop: 14 }}>
-                <button className="btn btn--sm" onClick={() => setEditing(funnel)}>
+                <button className="btn btn--sm" onClick={() => setEditingId(funnel.id)}>
                   <Icon name="sliders" size={14} /> Open builder
                 </button>
-                <button className="btn btn--sm">
+                <button className="btn btn--sm" onClick={() => duplicate(funnel)}>
                   <Icon name="copy" size={14} /> Duplicate
                 </button>
                 <span className="spacer" />
@@ -105,70 +129,179 @@ export default function Funnels() {
         ))}
       </div>
 
-      {editing && (
-        <Modal
-          title={editing.name}
-          wide
-          onClose={() => setEditing(null)}
-          footer={
-            <>
-              <button className="btn" onClick={() => setEditing(null)}>
-                Close
-              </button>
-              <button
-                className="btn btn--primary"
-                onClick={() => {
-                  dispatch({ type: 'site/toggle', id: editing.id });
-                  setEditing(null);
-                }}
+      {editing && <FunnelBuilder funnel={editing} onClose={() => setEditingId(null)} />}
+    </div>
+  );
+}
+
+function FunnelBuilder({ funnel, onClose }: { funnel: Site; onClose: () => void }) {
+  const { dispatch } = useStore();
+  const [name, setName] = useState('');
+  const [path, setPath] = useState('');
+
+  const addStep = () => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const cleanPath = path.trim();
+    const page: SitePage = {
+      id: uid('fp'),
+      name: trimmed,
+      path: cleanPath.startsWith('/') ? cleanPath : `/${cleanPath || slugPath(trimmed).slice(1)}`,
+      visits: 0,
+      optins: 0,
+    };
+    dispatch({ type: 'site/step/add', siteId: funnel.id, page });
+    setName('');
+    setPath('');
+  };
+
+  return (
+    <Modal
+      title={funnel.name}
+      wide
+      onClose={onClose}
+      footer={
+        <>
+          <button className="btn" onClick={onClose}>
+            Close
+          </button>
+          <button
+            className="btn btn--primary"
+            onClick={() => dispatch({ type: 'site/toggle', id: funnel.id })}
+          >
+            {funnel.published ? 'Unpublish funnel' : 'Publish funnel'}
+          </button>
+        </>
+      }
+    >
+      <div className="row row--between">
+        <div>
+          <div className="cell-sub">Public URL</div>
+          <div className="row" style={{ gap: 6, fontSize: 13, fontFamily: 'var(--font-mono)' }}>
+            go.agency.test/{funnel.name.toLowerCase().replace(/\s+/g, '-')}
+          </div>
+        </div>
+        <StatusBadge status={funnel.published ? 'published' : 'draft'} />
+      </div>
+      <div className="divider" />
+      <div className="row row--between">
+        <strong style={{ fontSize: 13 }}>Steps</strong>
+        <span className="cell-sub">
+          {num(funnel.visits)} visits · {num(funnel.optins)} opt-ins
+        </span>
+      </div>
+
+      {funnel.pages.length === 0 ? (
+        <div className="hint">No steps yet — add the first page below.</div>
+      ) : (
+        <div className="stack" style={{ gap: 8 }}>
+          {funnel.pages.map((page, idx) => (
+            <div
+              className="list-row"
+              key={page.id}
+              style={{ border: '1px solid var(--line)', borderRadius: 9, background: 'var(--surface-2)' }}
+            >
+              <span
+                className="avatar avatar--sm"
+                style={{ background: 'var(--accent-soft)', color: 'var(--accent)', fontSize: 11 }}
               >
-                {editing.published ? 'Unpublish funnel' : 'Publish funnel'}
-              </button>
-            </>
-          }
-        >
-          <div className="row row--between">
-            <div>
-              <div className="cell-sub">Public URL</div>
-              <div className="row" style={{ gap: 6, fontSize: 13, fontFamily: 'var(--font-mono)' }}>
-                go.agency.test/{editing.name.toLowerCase().replace(/\s+/g, '-')}
+                {idx + 1}
+              </span>
+              <div style={{ flex: 1, minWidth: 0, display: 'grid', gridTemplateColumns: '1fr 150px', gap: 8 }}>
+                <input
+                  className="input"
+                  aria-label={`Step ${idx + 1} name`}
+                  value={page.name}
+                  onChange={(e) =>
+                    dispatch({
+                      type: 'site/step/update',
+                      siteId: funnel.id,
+                      id: page.id,
+                      patch: { name: e.target.value },
+                    })
+                  }
+                />
+                <input
+                  className="input"
+                  aria-label={`Step ${idx + 1} path`}
+                  style={{ fontFamily: 'var(--font-mono)' }}
+                  value={page.path}
+                  onChange={(e) =>
+                    dispatch({
+                      type: 'site/step/update',
+                      siteId: funnel.id,
+                      id: page.id,
+                      patch: { path: e.target.value },
+                    })
+                  }
+                />
+              </div>
+              <div style={{ textAlign: 'right', minWidth: 96 }}>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>{num(page.visits)}</div>
+                <div className="cell-sub">
+                  {num(page.optins)} opt-ins · {pct(page.optins, page.visits || 1)}
+                </div>
+              </div>
+              <div className="row" style={{ gap: 2 }}>
+                <button
+                  type="button"
+                  className="icon-btn"
+                  aria-label={`Move ${page.name} up`}
+                  disabled={idx === 0}
+                  onClick={() => dispatch({ type: 'site/step/move', siteId: funnel.id, id: page.id, direction: 'up' })}
+                >
+                  <Icon name="chevron-up" size={15} />
+                </button>
+                <button
+                  type="button"
+                  className="icon-btn"
+                  aria-label={`Move ${page.name} down`}
+                  disabled={idx === funnel.pages.length - 1}
+                  onClick={() => dispatch({ type: 'site/step/move', siteId: funnel.id, id: page.id, direction: 'down' })}
+                >
+                  <Icon name="chevron-down" size={15} />
+                </button>
+                <button
+                  type="button"
+                  className="icon-btn"
+                  aria-label={`Delete ${page.name}`}
+                  onClick={() => dispatch({ type: 'site/step/delete', siteId: funnel.id, id: page.id })}
+                >
+                  <Icon name="trash" size={15} />
+                </button>
               </div>
             </div>
-            <StatusBadge status={editing.published ? 'published' : 'draft'} />
-          </div>
-          <div className="divider" />
-          <strong style={{ fontSize: 13 }}>Steps</strong>
-          <div className="stack" style={{ gap: 8 }}>
-            {editing.pages.map((page, idx) => {
-              const pageVisits = Math.round(editing.visits * Math.pow(0.62, idx));
-              return (
-                <div className="list-row" key={page.id} style={{ border: '1px solid var(--line)', borderRadius: 9, background: 'var(--surface-2)' }}>
-                  <span
-                    className="avatar avatar--sm"
-                    style={{ background: 'var(--accent-soft)', color: 'var(--accent)', fontSize: 11 }}
-                  >
-                    {idx + 1}
-                  </span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>{page.name}</div>
-                    <div className="cell-sub" style={{ fontFamily: 'var(--font-mono)' }}>
-                      {page.path}
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>{num(pageVisits)}</div>
-                    <div className="cell-sub">visits</div>
-                  </div>
-                  <button className="icon-btn" aria-label="Edit step">
-                    <Icon name="edit" size={15} />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-          <div className="hint">Demo builder: steps are read-only in this build.</div>
-        </Modal>
+          ))}
+        </div>
       )}
-    </div>
+
+      <div className="divider" />
+      <div className="grid grid--3" style={{ alignItems: 'end' }}>
+        <div className="field">
+          <label htmlFor="step-name">Step name</label>
+          <input
+            id="step-name"
+            className="input"
+            placeholder="Checkout"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="step-path">Path</label>
+          <input
+            id="step-path"
+            className="input"
+            placeholder="/checkout"
+            style={{ fontFamily: 'var(--font-mono)' }}
+            value={path}
+            onChange={(e) => setPath(e.target.value)}
+          />
+        </div>
+        <button className="btn" type="button" disabled={!name.trim()} onClick={addStep}>
+          <Icon name="plus" size={14} /> Add step
+        </button>
+      </div>
+    </Modal>
   );
 }

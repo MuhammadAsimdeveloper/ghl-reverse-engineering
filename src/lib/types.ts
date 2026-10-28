@@ -225,6 +225,8 @@ export interface SitePage {
   id: ID;
   name: string;
   path: string;
+  visits: number;
+  optins: number;
 }
 
 export interface Site {
@@ -285,6 +287,29 @@ export interface Listing {
   connected: boolean;
   rating: number;
   reviews: number;
+}
+
+export type ReviewRequestChannel = 'email' | 'sms';
+
+export interface ReviewRequest {
+  id: ID;
+  contactId: ID;
+  channel: ReviewRequestChannel;
+  /** Raw template body — merge tokens resolve at render time. */
+  message: string;
+  scheduledAt: string;
+  sentAt?: string;
+}
+
+export type ReportMetric = 'revenue' | 'pipeline' | 'deals' | 'contacts';
+export type ReportRange = 30 | 90 | 180;
+
+export interface SavedReport {
+  id: ID;
+  name: string;
+  metric: ReportMetric;
+  rangeDays: ReportRange;
+  createdAt: string;
 }
 
 export type CourseKind = 'course' | 'community';
@@ -511,6 +536,8 @@ export interface WorkspaceState {
   workflows: Workflow[];
   reviews: Review[];
   listings: Listing[];
+  reviewRequests: ReviewRequest[];
+  savedReports: SavedReport[];
   courses: Course[];
   enrollments: Enrollment[];
   subAccounts: SubAccount[];

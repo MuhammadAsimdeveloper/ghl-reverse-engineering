@@ -103,6 +103,7 @@ const paths: Record<string, ReactNode> = {
   plus: <path d="M12 5v14M5 12h14" />,
   minus: <path d="M5 12h14" />,
   'chevron-down': <path d="m6 9 6 6 6-6" />,
+  'chevron-up': <path d="m6 15 6-6 6 6" />,
   'chevron-right': <path d="m9 6 6 6-6 6" />,
   'chevron-left': <path d="m15 6-6 6 6 6" />,
   'arrow-up': <path d="M12 19V5M6 11l6-6 6 6" />,
