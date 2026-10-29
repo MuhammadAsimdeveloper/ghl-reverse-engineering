@@ -12,6 +12,7 @@ import type {
   Appointment,
   AuditEntry,
   CalendarDef,
+  Campaign,
   Contact,
   ContractDoc,
   Coupon,
@@ -19,6 +20,8 @@ import type {
   CustomField,
   CustomValue,
   DashboardWidget,
+  FormDef,
+  FormField,
   Invoice,
   Lesson,
   MediaAsset,
@@ -43,9 +46,10 @@ import type {
   TriggerLink,
   WorkspaceState,
   Workflow,
+  WorkflowAction,
 } from './types';
 
-const STORAGE_KEY = 'ghl-lite.workspace.v8';
+const STORAGE_KEY = 'ghl-lite.workspace.v9';
 
 export function uid(prefix = 'id'): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
@@ -111,9 +115,21 @@ export type Action =
   | { type: 'reviewRequest/add'; request: ReviewRequest }
   | { type: 'reviewRequest/send'; id: string }
   | { type: 'reviewRequest/delete'; id: string }
+  | { type: 'campaign/add'; campaign: Campaign }
+  | { type: 'form/add'; form: FormDef }
+  | { type: 'form/update'; id: string; patch: Partial<Pick<FormDef, 'name' | 'kind'>> }
   | { type: 'form/toggle'; id: string }
+  | { type: 'form/field/add'; formId: string; field: FormField }
+  | { type: 'form/field/update'; formId: string; id: string; patch: Partial<FormField> }
+  | { type: 'form/field/delete'; formId: string; id: string }
+  | { type: 'form/field/move'; formId: string; id: string; direction: 'up' | 'down' }
   | { type: 'workflow/toggle'; id: string }
   | { type: 'workflow/add'; workflow: Workflow }
+  | { type: 'workflow/update'; id: string; patch: Partial<Pick<Workflow, 'name' | 'trigger'>> }
+  | { type: 'workflow/step/add'; workflowId: string; step: WorkflowAction }
+  | { type: 'workflow/step/update'; workflowId: string; id: string; patch: Partial<WorkflowAction> }
+  | { type: 'workflow/step/delete'; workflowId: string; id: string }
+  | { type: 'workflow/step/move'; workflowId: string; id: string; direction: 'up' | 'down' }
   | { type: 'integration/toggle'; id: string }
   | { type: 'review/reply'; id: string; reply: string }
   | { type: 'review/status'; id: string; status: 'new' | 'flagged' }
@@ -522,11 +538,67 @@ function applyAction(state: WorkspaceState, action: Action): WorkspaceState {
         reviewRequests: state.reviewRequests.filter((r) => r.id !== action.id),
       };
 
+    case 'campaign/add':
+      return { ...state, campaigns: [action.campaign, ...state.campaigns] };
+
+    case 'form/add':
+      return { ...state, forms: [action.form, ...state.forms] };
+
+    case 'form/update':
+      return {
+        ...state,
+        forms: state.forms.map((f) => (f.id === action.id ? { ...f, ...action.patch } : f)),
+      };
+
     case 'form/toggle':
       return {
         ...state,
         forms: state.forms.map((f) => (f.id === action.id ? { ...f, published: !f.published } : f)),
       };
+
+    case 'form/field/add':
+      return {
+        ...state,
+        forms: state.forms.map((f) =>
+          f.id === action.formId ? { ...f, fields: [...f.fields, action.field] } : f,
+        ),
+      };
+
+    case 'form/field/update':
+      return {
+        ...state,
+        forms: state.forms.map((f) =>
+          f.id === action.formId
+            ? {
+                ...f,
+                fields: f.fields.map((field) =>
+                  field.id === action.id ? { ...field, ...action.patch } : field,
+                ),
+              }
+            : f,
+        ),
+      };
+
+    case 'form/field/delete':
+      return {
+        ...state,
+        forms: state.forms.map((f) =>
+          f.id === action.formId
+            ? { ...f, fields: f.fields.filter((field) => field.id !== action.id) }
+            : f,
+        ),
+      };
+
+    case 'form/field/move': {
+      const form = state.forms.find((f) => f.id === action.formId);
+      if (!form) return state;
+      const index = form.fields.findIndex((field) => field.id === action.id);
+      const target = action.direction === 'up' ? index - 1 : index + 1;
+      if (index < 0 || target < 0 || target >= form.fields.length) return state;
+      const fields = [...form.fields];
+      [fields[index], fields[target]] = [fields[target], fields[index]];
+      return { ...state, forms: state.forms.map((f) => (f.id === form.id ? { ...f, fields } : f)) };
+    }
 
     case 'workflow/toggle':
       return {
@@ -538,6 +610,61 @@ function applyAction(state: WorkspaceState, action: Action): WorkspaceState {
 
     case 'workflow/add':
       return { ...state, workflows: [action.workflow, ...state.workflows] };
+
+    case 'workflow/update':
+      return {
+        ...state,
+        workflows: state.workflows.map((w) =>
+          w.id === action.id ? { ...w, ...action.patch } : w,
+        ),
+      };
+
+    case 'workflow/step/add':
+      return {
+        ...state,
+        workflows: state.workflows.map((w) =>
+          w.id === action.workflowId ? { ...w, actions: [...w.actions, action.step] } : w,
+        ),
+      };
+
+    case 'workflow/step/update':
+      return {
+        ...state,
+        workflows: state.workflows.map((w) =>
+          w.id === action.workflowId
+            ? {
+                ...w,
+                actions: w.actions.map((step) =>
+                  step.id === action.id ? { ...step, ...action.patch } : step,
+                ),
+              }
+            : w,
+        ),
+      };
+
+    case 'workflow/step/delete':
+      return {
+        ...state,
+        workflows: state.workflows.map((w) =>
+          w.id === action.workflowId
+            ? { ...w, actions: w.actions.filter((step) => step.id !== action.id) }
+            : w,
+        ),
+      };
+
+    case 'workflow/step/move': {
+      const flow = state.workflows.find((w) => w.id === action.workflowId);
+      if (!flow) return state;
+      const index = flow.actions.findIndex((step) => step.id === action.id);
+      const target = action.direction === 'up' ? index - 1 : index + 1;
+      if (index < 0 || target < 0 || target >= flow.actions.length) return state;
+      const actions = [...flow.actions];
+      [actions[index], actions[target]] = [actions[target], actions[index]];
+      return {
+        ...state,
+        workflows: state.workflows.map((w) => (w.id === flow.id ? { ...w, actions } : w)),
+      };
+    }
 
     case 'integration/toggle':
       return {
@@ -945,8 +1072,80 @@ function auditMeta(
         detail: byId(state.documents, action.id)?.name,
       };
 
+    case 'campaign/add':
+      return { action: 'Campaign created', entity: 'Campaign', detail: action.campaign.name };
+
+    case 'form/add':
+      return { action: 'Form created', entity: 'Form', detail: action.form.name };
+    case 'form/update':
+      return {
+        action: 'Form updated',
+        entity: 'Form',
+        detail: action.patch.name ?? byId(state.forms, action.id)?.name,
+      };
+    case 'form/field/add':
+      return {
+        action: 'Form field added',
+        entity: 'Form',
+        detail: `${byId(state.forms, action.formId)?.name ?? 'Form'} · ${action.field.label}`,
+      };
+    case 'form/field/update': {
+      const form = byId(state.forms, action.formId);
+      return {
+        action: 'Form field updated',
+        entity: 'Form',
+        detail: action.patch.label ?? byId(form?.fields ?? [], action.id)?.label,
+      };
+    }
+    case 'form/field/delete': {
+      const form = byId(state.forms, action.formId);
+      return {
+        action: 'Form field removed',
+        entity: 'Form',
+        detail: byId(form?.fields ?? [], action.id)?.label,
+      };
+    }
+    case 'form/field/move':
+      return {
+        action: 'Form field reordered',
+        entity: 'Form',
+        detail: byId(state.forms, action.formId)?.name,
+      };
+
     case 'workflow/add':
       return { action: 'Workflow created', entity: 'Workflow', detail: action.workflow.name };
+    case 'workflow/update':
+      return {
+        action: 'Workflow updated',
+        entity: 'Workflow',
+        detail: action.patch.name ?? byId(state.workflows, action.id)?.name,
+      };
+    case 'workflow/step/add':
+      return {
+        action: 'Workflow step added',
+        entity: 'Workflow',
+        detail: `${byId(state.workflows, action.workflowId)?.name ?? 'Workflow'} · ${action.step.label}`,
+      };
+    case 'workflow/step/update':
+      return {
+        action: 'Workflow step updated',
+        entity: 'Workflow',
+        detail:
+          action.patch.label ??
+          byId(byId(state.workflows, action.workflowId)?.actions ?? [], action.id)?.label,
+      };
+    case 'workflow/step/delete':
+      return {
+        action: 'Workflow step removed',
+        entity: 'Workflow',
+        detail: byId(byId(state.workflows, action.workflowId)?.actions ?? [], action.id)?.label,
+      };
+    case 'workflow/step/move':
+      return {
+        action: 'Workflow step reordered',
+        entity: 'Workflow',
+        detail: byId(state.workflows, action.workflowId)?.name,
+      };
     case 'workflow/toggle': {
       const flow = byId(state.workflows, action.id);
       return {

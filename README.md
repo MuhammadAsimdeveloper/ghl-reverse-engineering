@@ -49,14 +49,14 @@ npm run typecheck  # types only
 | Custom Values | `/custom-values` | Reusable merge tokens with copy-to-clipboard |
 | Audit Log | `/audit-log` | Every workspace mutation, filterable by actor and entity |
 | Contracts | `/documents` | Proposals/contracts/estimates, create modal, status pipeline |
-| Campaigns | `/campaigns` | Email/SMS metrics, CTR bars, delivery funnel |
+| Campaigns | `/campaigns` | Email/SMS metrics, CTR bars, delivery funnel, tag/status/age segment builder with live reach |
 | Social Planner | `/social` | Draft → scheduled → published board, post composer |
 | Prospecting | `/prospecting` | Scored prospect table, filters, one-click import to contacts |
 | Media Library | `/media` | Folder/type filters, asset grid, upload + delete |
 | Funnels | `/funnels` | Editable step builder (rename, reorder, per-step opt-in rate), duplicate, publish toggle |
 | Websites | `/websites` | Site pages, per-page stats, preview modal |
-| Forms & Surveys | `/forms` | Type tabs, submission counts, live toggles |
-| Workflows | `/workflows` | Automation list + step-by-step flow diagram |
+| Forms & Surveys | `/forms` | Type tabs, live toggles, field editor with types/options/required flags and a live preview |
+| Workflows | `/workflows` | Editable automation builder — rename, retrigger, reorder/add/edit/remove steps with wait delays |
 | Store | `/store` | Product storefront, cart, coupon redemption, simulated gateways with fee math, atomic checkout |
 | Memberships | `/memberships` | Course/community offers, lesson curriculum with per-lesson drip days, unlock counts |
 | Reporting | `/reporting` | Custom widget dashboard, multi-series charts, saveable metric reports with prior-period deltas, team table |
@@ -89,7 +89,7 @@ src/
 
 There is no backend. `StoreProvider` holds the whole workspace in a `useReducer`, and every
 action returns a new immutable state. The state is mirrored into `localStorage` under
-`ghl-lite.workspace.v8` after each change, so your edits survive a refresh. **Settings → Workspace
+`ghl-lite.workspace.v9` after each change, so your edits survive a refresh. **Settings → Workspace
 data → Reset** restores the seed. A derived audit log records every logged mutation, and
 snippets resolve `{{contact.*}}` and `{{custom_values.*}}` tokens when inserted into a reply.
 
@@ -107,6 +107,13 @@ changes, and the gateway's processing fee and the receipt's net amount are compu
 gateway's `feePct`/`feeFixed` at render. Checkout itself is one atomic store action: it appends
 the order and a paid invoice, records the coupon redemption and writes a single audit entry, so
 the three records can never drift apart.
+
+Campaign segmentation works the same way. The builder's reach counter re-filters the current
+contacts on every tag/status/age change, but the campaign stores only the **segment definition**
+and the audience count as a snapshot taken when it was created — later contact edits do not
+silently rewrite a campaign that has already been scheduled. Form fields and workflow steps are
+plain ordered arrays in state, so reordering is a swap of two indices with bounds checks rather
+than a separate order column that can drift out of sync.
 
 To add a field or entity:
 

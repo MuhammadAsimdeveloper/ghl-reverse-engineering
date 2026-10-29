@@ -1,4 +1,4 @@
-import type { WorkspaceState } from './types';
+import type { FormField, WorkspaceState } from './types';
 
 const now = new Date();
 
@@ -16,6 +16,16 @@ function minutesAgo(n: number): string {
 
 function weekdays(start: string, end: string, days = [1, 2, 3, 4, 5]) {
   return days.map((weekday) => ({ weekday, start, end }));
+}
+
+function field(
+  id: string,
+  label: string,
+  type: FormField['type'],
+  required = false,
+  options: string[] = [],
+): FormField {
+  return { id, label, type, required, options };
 }
 
 export const seed: WorkspaceState = {
@@ -356,11 +366,23 @@ export const seed: WorkspaceState = {
   ],
 
   campaigns: [
-    { id: 'cm1', name: 'October Webinar Invite', kind: 'email', status: 'sent', audience: 4200, sent: 4182, opened: 2011, clicked: 384, scheduledAt: day(-18, 8) },
-    { id: 'cm2', name: 'Black Friday Teaser', kind: 'email', status: 'scheduled', audience: 5100, sent: 0, opened: 0, clicked: 0, scheduledAt: day(6, 9) },
-    { id: 'cm3', name: 'Re-engagement SMS', kind: 'sms', status: 'sent', audience: 860, sent: 860, opened: 640, clicked: 141, scheduledAt: day(-9, 17) },
+    {
+      id: 'cm1', name: 'October Webinar Invite', kind: 'email', status: 'sent', audience: 4200, sent: 4182, opened: 2011, clicked: 384, scheduledAt: day(-18, 8),
+      segment: { tags: ['customer'], status: 'customer', createdWithinDays: null },
+    },
+    {
+      id: 'cm2', name: 'Black Friday Teaser', kind: 'email', status: 'scheduled', audience: 5100, sent: 0, opened: 0, clicked: 0, scheduledAt: day(6, 9),
+      segment: { tags: ['webinar'], status: 'any', createdWithinDays: 90 },
+    },
+    {
+      id: 'cm3', name: 'Re-engagement SMS', kind: 'sms', status: 'sent', audience: 860, sent: 860, opened: 640, clicked: 141, scheduledAt: day(-9, 17),
+      segment: { tags: ['cold'], status: 'cold', createdWithinDays: null },
+    },
     { id: 'cm4', name: 'Case Study Drop', kind: 'email', status: 'draft', audience: 3900, sent: 0, opened: 0, clicked: 0, scheduledAt: day(12, 10) },
-    { id: 'cm5', name: 'Demo Reminder SMS', kind: 'sms', status: 'sent', audience: 210, sent: 209, opened: 188, clicked: 62, scheduledAt: day(-3, 16) },
+    {
+      id: 'cm5', name: 'Demo Reminder SMS', kind: 'sms', status: 'sent', audience: 210, sent: 209, opened: 188, clicked: 62, scheduledAt: day(-3, 16),
+      segment: { tags: ['demo-booked'], status: 'lead', createdWithinDays: 30 },
+    },
   ],
 
   posts: [
@@ -408,11 +430,58 @@ export const seed: WorkspaceState = {
   ],
 
   forms: [
-    { id: 'fm1', name: 'Contact Us', kind: 'form', published: true, submissions: 318, fields: 5 },
-    { id: 'fm2', name: 'Webinar Registration', kind: 'form', published: true, submissions: 2140, fields: 4 },
-    { id: 'fm3', name: 'Free Audit Intake', kind: 'form', published: false, submissions: 0, fields: 7 },
-    { id: 'sv1', name: 'Post-Demo NPS', kind: 'survey', published: true, submissions: 96, fields: 3 },
-    { id: 'sv2', name: 'Client Satisfaction Q3', kind: 'survey', published: true, submissions: 41, fields: 8 },
+    {
+      id: 'fm1', name: 'Contact Us', kind: 'form', published: true, submissions: 318,
+      fields: [
+        field('ff1', 'Full name', 'text', true),
+        field('ff2', 'Email', 'email', true),
+        field('ff3', 'Phone', 'phone'),
+        field('ff4', 'Company', 'text'),
+        field('ff5', 'How can we help?', 'textarea', true),
+      ],
+    },
+    {
+      id: 'fm2', name: 'Webinar Registration', kind: 'form', published: true, submissions: 2140,
+      fields: [
+        field('ff6', 'Full name', 'text', true),
+        field('ff7', 'Email', 'email', true),
+        field('ff8', 'Company', 'text'),
+        field('ff9', 'Which session?', 'select', true, ['Morning', 'Afternoon']),
+      ],
+    },
+    {
+      id: 'fm3', name: 'Free Audit Intake', kind: 'form', published: false, submissions: 0,
+      fields: [
+        field('ff10', 'Full name', 'text', true),
+        field('ff11', 'Email', 'email', true),
+        field('ff12', 'Website', 'text', true),
+        field('ff13', 'Monthly ad spend', 'select', false, ['Under $2k', '$2k–$10k', '$10k+']),
+        field('ff14', 'Main goal', 'textarea', true),
+        field('ff15', 'Preferred contact', 'select', false, ['Email', 'Phone']),
+        field('ff16', 'I agree to be contacted', 'consent', true),
+      ],
+    },
+    {
+      id: 'sv1', name: 'Post-Demo NPS', kind: 'survey', published: true, submissions: 96,
+      fields: [
+        field('ff17', 'How likely are you to recommend us?', 'select', true, ['1', '2', '3', '4', '5']),
+        field('ff18', 'What went well?', 'textarea'),
+        field('ff19', 'I agree to be contacted about my feedback', 'consent'),
+      ],
+    },
+    {
+      id: 'sv2', name: 'Client Satisfaction Q3', kind: 'survey', published: true, submissions: 41,
+      fields: [
+        field('ff20', 'Full name', 'text'),
+        field('ff21', 'Email', 'email'),
+        field('ff22', 'Team rating', 'select', true, ['1', '2', '3', '4', '5']),
+        field('ff23', 'Communication rating', 'select', true, ['1', '2', '3', '4', '5']),
+        field('ff24', 'Value rating', 'select', true, ['1', '2', '3', '4', '5']),
+        field('ff25', 'What should we improve?', 'textarea'),
+        field('ff26', 'I would refer another agency', 'consent'),
+        field('ff27', 'Anything else?', 'textarea'),
+      ],
+    },
   ],
 
   workflows: [
@@ -420,7 +489,7 @@ export const seed: WorkspaceState = {
       id: 'wf1', name: 'New Lead Nurture', status: 'published', trigger: 'Form submitted', enrolled: 482, completed: 311,
       actions: [
         { id: 'wa1', kind: 'email', label: 'Send welcome email' },
-        { id: 'wa2', kind: 'wait', label: 'Wait 2 days' },
+        { id: 'wa2', kind: 'wait', label: 'Wait 2 days', delayHours: 48 },
         { id: 'wa3', kind: 'sms', label: 'Send SMS check-in' },
         { id: 'wa4', kind: 'condition', label: 'If replied → stop' },
         { id: 'wa5', kind: 'tag', label: 'Tag "nurtured"' },
@@ -430,9 +499,9 @@ export const seed: WorkspaceState = {
       id: 'wf2', name: 'Appointment Reminder', status: 'published', trigger: 'Appointment booked', enrolled: 214, completed: 198,
       actions: [
         { id: 'wa6', kind: 'sms', label: 'Confirm booking via SMS' },
-        { id: 'wa7', kind: 'wait', label: 'Wait 24 hours' },
+        { id: 'wa7', kind: 'wait', label: 'Wait 24 hours', delayHours: 24 },
         { id: 'wa8', kind: 'email', label: 'Send reminder email' },
-        { id: 'wa9', kind: 'wait', label: 'Wait 1 hour' },
+        { id: 'wa9', kind: 'wait', label: 'Wait 1 hour', delayHours: 1 },
         { id: 'wa10', kind: 'sms', label: 'Send 1-hour nudge' },
       ],
     },
@@ -440,14 +509,14 @@ export const seed: WorkspaceState = {
       id: 'wf3', name: 'Invoice Overdue Chaser', status: 'published', trigger: 'Invoice overdue', enrolled: 37, completed: 29,
       actions: [
         { id: 'wa11', kind: 'email', label: 'Friendly reminder' },
-        { id: 'wa12', kind: 'wait', label: 'Wait 3 days' },
+        { id: 'wa12', kind: 'wait', label: 'Wait 3 days', delayHours: 72 },
         { id: 'wa13', kind: 'task', label: 'Create call task' },
       ],
     },
     {
       id: 'wf4', name: 'Review Request', status: 'draft', trigger: 'Payment received', enrolled: 0, completed: 0,
       actions: [
-        { id: 'wa14', kind: 'wait', label: 'Wait 7 days' },
+        { id: 'wa14', kind: 'wait', label: 'Wait 7 days', delayHours: 168 },
         { id: 'wa15', kind: 'email', label: 'Ask for a review' },
         { id: 'wa16', kind: 'webhook', label: 'POST to review monitor' },
       ],

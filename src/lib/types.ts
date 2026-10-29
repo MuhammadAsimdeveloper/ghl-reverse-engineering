@@ -201,6 +201,14 @@ export interface AuditEntry {
 
 export type CampaignStatus = 'draft' | 'scheduled' | 'sent';
 
+export interface CampaignSegment {
+  /** Contact must carry at least one of these tags; empty means any tag. */
+  tags: string[];
+  status: 'any' | ContactStatus;
+  /** Only include contacts created in the last N days; null means any age. */
+  createdWithinDays: number | null;
+}
+
 export interface Campaign {
   id: ID;
   name: string;
@@ -211,6 +219,7 @@ export interface Campaign {
   opened: number;
   clicked: number;
   scheduledAt: string;
+  segment?: CampaignSegment;
 }
 
 export type PostStatus = 'draft' | 'scheduled' | 'published';
@@ -245,19 +254,32 @@ export interface Site {
 
 export type FormKind = 'form' | 'survey';
 
+export type FormFieldType = 'text' | 'email' | 'phone' | 'textarea' | 'select' | 'consent';
+
+export interface FormField {
+  id: ID;
+  label: string;
+  type: FormFieldType;
+  required: boolean;
+  /** Choices for select fields; ignored by every other type. */
+  options: string[];
+}
+
 export interface FormDef {
   id: ID;
   name: string;
   kind: FormKind;
   published: boolean;
   submissions: number;
-  fields: number;
+  fields: FormField[];
 }
 
 export interface WorkflowAction {
   id: ID;
   kind: 'sms' | 'email' | 'wait' | 'tag' | 'task' | 'webhook' | 'condition';
   label: string;
+  /** Delay for wait steps, in hours. Ignored by every other kind. */
+  delayHours?: number;
 }
 
 export interface Workflow {

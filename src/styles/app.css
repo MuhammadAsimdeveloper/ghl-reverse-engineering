@@ -1611,6 +1611,157 @@ a {
   font: inherit;
 }
 
+.flow__node--edit {
+  align-self: stretch;
+}
+.flow__node-main {
+  appearance: none;
+  border: none;
+  background: none;
+  padding: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.flow__node-tools {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  flex: 0 0 auto;
+}
+.flow__node-tools .icon-btn,
+.field-row__tools .icon-btn {
+  width: 24px;
+  height: 24px;
+}
+.flow__add {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  margin: 2px 0 10px;
+  padding: 6px 11px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-md);
+  background: none;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.flow__add:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ---------- Builders ---------- */
+
+.builder-box {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 12px;
+  background: var(--surface-2);
+}
+.field-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+.field-row__body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.field-row__label {
+  font-size: 12.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.field-row__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.field-row__tools {
+  display: flex;
+  gap: 1px;
+  flex: 0 0 auto;
+}
+.form-preview {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  padding: 16px;
+}
+.form-preview__title {
+  font-size: 15px;
+  font-weight: 650;
+  margin-bottom: 14px;
+}
+.form-preview__field {
+  margin-bottom: 12px;
+}
+.form-preview__field > label:not(.checkbox) {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  margin-bottom: 5px;
+}
+.form-preview__req {
+  color: var(--red);
+  margin-left: 2px;
+}
+.form-preview .input:disabled,
+.form-preview .select:disabled {
+  background: var(--surface);
+  color: var(--text-2);
+  opacity: 1;
+  cursor: default;
+}
+
+.segment-editor {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+.reach {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 11px 13px;
+  border-radius: var(--r-md);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+.reach__value {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.reach .cell-sub {
+  color: var(--accent-ink);
+  opacity: 0.75;
+}
+
 /* ---------- Settings ---------- */
 
 .settings-layout {
@@ -2298,5 +2449,19 @@ a {
   }
   .user-chip__name {
     display: none;
+  }
+  .field-row {
+    flex-wrap: wrap;
+  }
+  .field-row__tools {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .flow__node--edit {
+    flex-wrap: wrap;
+  }
+  .flow__node-tools {
+    width: 100%;
+    justify-content: flex-end;
   }
 }
