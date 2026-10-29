@@ -236,6 +236,24 @@ export interface SocialPost {
 
 export type PageTheme = 'gradient' | 'plain' | 'dark';
 
+export interface OrderBump {
+  id: ID;
+  productId: ID;
+  /** Offer headline shown to the buyer at checkout. */
+  title: string;
+  /** One-line description under the checkbox. */
+  copy: string;
+  /** Checkout price for the add-on; below the product's list price. */
+  price: number;
+  enabled: boolean;
+}
+
+export interface FunnelCheckout {
+  /** The product the funnel sells at its order step. */
+  productId: ID;
+  bumps: OrderBump[];
+}
+
 export interface SitePage {
   id: ID;
   name: string;
@@ -257,6 +275,8 @@ export interface Site {
   visits: number;
   optins: number;
   pages: SitePage[];
+  /** Order-step configuration; funnels without a checkout leave this empty. */
+  checkout?: FunnelCheckout;
 }
 
 export type FormKind = 'form' | 'survey';
@@ -477,6 +497,8 @@ export interface Order {
   /** Payment gateway used at checkout. */
   gateway?: string;
   couponCode?: string;
+  /** Accepted funnel order-bump titles, when the order came from a funnel checkout. */
+  bumps?: string[];
 }
 
 export type SubscriptionStatus = 'active' | 'past_due' | 'canceled';

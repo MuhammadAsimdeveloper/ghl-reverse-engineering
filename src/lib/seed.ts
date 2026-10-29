@@ -403,6 +403,19 @@ export const seed: WorkspaceState = {
         { id: 'fp3', name: 'Booking', path: '/book', visits: 6840, optins: 760 },
         { id: 'fp4', name: 'Thank You', path: '/thanks', visits: 4120, optins: 0 },
       ],
+      checkout: {
+        productId: 'pr2',
+        bumps: [
+          {
+            id: 'ob1', productId: 'pr5', title: 'Add a strategy session', price: 120, enabled: true,
+            copy: '60-minute working session with your strategist, 20% off at checkout.',
+          },
+          {
+            id: 'ob2', productId: 'pr6', title: 'Add the content retainer', price: 960, enabled: true,
+            copy: 'First month of content production alongside your growth package.',
+          },
+        ],
+      },
     },
     {
       id: 'f2', name: 'Webinar Registration', kind: 'funnel', published: true, visits: 9240, optins: 2140,

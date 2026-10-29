@@ -29,6 +29,7 @@ import type {
   Note,
   Opportunity,
   Order,
+  OrderBump,
   PaymentGateway,
   PaymentLink,
   Product,
@@ -50,7 +51,7 @@ import type {
   WorkflowAction,
 } from './types';
 
-const STORAGE_KEY = 'ghl-lite.workspace.v10';
+const STORAGE_KEY = 'ghl-lite.workspace.v11';
 
 export function uid(prefix = 'id'): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
@@ -104,6 +105,10 @@ export type Action =
   | { type: 'site/step/update'; siteId: string; id: string; patch: Partial<SitePage> }
   | { type: 'site/step/move'; siteId: string; id: string; direction: 'up' | 'down' }
   | { type: 'site/step/delete'; siteId: string; id: string }
+  | { type: 'site/checkout/set'; siteId: string; productId: string }
+  | { type: 'site/bump/add'; siteId: string; bump: OrderBump }
+  | { type: 'site/bump/update'; siteId: string; id: string; patch: Partial<OrderBump> }
+  | { type: 'site/bump/delete'; siteId: string; id: string }
   | { type: 'site/duplicate'; copy: Site }
   | { type: 'report/add'; report: SavedReport }
   | { type: 'report/delete'; id: string }
@@ -467,6 +472,60 @@ function applyAction(state: WorkspaceState, action: Action): WorkspaceState {
         ...state,
         sites: state.sites.map((s) =>
           s.id === action.siteId ? { ...s, pages: s.pages.filter((p) => p.id !== action.id) } : s,
+        ),
+      };
+
+    case 'site/checkout/set':
+      return {
+        ...state,
+        sites: state.sites.map((s) =>
+          s.id === action.siteId
+            ? { ...s, checkout: { productId: action.productId, bumps: s.checkout?.bumps ?? [] } }
+            : s,
+        ),
+      };
+
+    case 'site/bump/add':
+      return {
+        ...state,
+        sites: state.sites.map((s) =>
+          s.id === action.siteId && s.checkout
+            ? { ...s, checkout: { ...s.checkout, bumps: [...s.checkout.bumps, action.bump] } }
+            : s,
+        ),
+      };
+
+    case 'site/bump/update':
+      return {
+        ...state,
+        sites: state.sites.map((s) =>
+          s.id === action.siteId && s.checkout
+            ? {
+                ...s,
+                checkout: {
+                  ...s.checkout,
+                  bumps: s.checkout.bumps.map((b) =>
+                    b.id === action.id ? { ...b, ...action.patch } : b,
+                  ),
+                },
+              }
+            : s,
+        ),
+      };
+
+    case 'site/bump/delete':
+      return {
+        ...state,
+        sites: state.sites.map((s) =>
+          s.id === action.siteId && s.checkout
+            ? {
+                ...s,
+                checkout: {
+                  ...s.checkout,
+                  bumps: s.checkout.bumps.filter((b) => b.id !== action.id),
+                },
+              }
+            : s,
         ),
       };
 
@@ -1393,6 +1452,40 @@ function auditMeta(
         action: `${noun} removed`,
         entity: site?.kind === 'website' ? 'Website' : 'Funnel',
         detail: site ? `${site.name} · ${site.pages.find((p) => p.id === action.id)?.name ?? ''}` : undefined,
+      };
+    }
+    case 'site/checkout/set': {
+      const site = byId(state.sites, action.siteId);
+      return {
+        action: 'Funnel checkout configured',
+        entity: 'Funnel',
+        detail: site ? `${site.name} · ${byId(state.products, action.productId)?.name ?? 'Product'}` : undefined,
+      };
+    }
+    case 'site/bump/add': {
+      const site = byId(state.sites, action.siteId);
+      return {
+        action: 'Funnel order bump added',
+        entity: 'Funnel',
+        detail: site ? `${site.name} · ${action.bump.title}` : action.bump.title,
+      };
+    }
+    case 'site/bump/update': {
+      const site = byId(state.sites, action.siteId);
+      const bump = site?.checkout?.bumps.find((b) => b.id === action.id);
+      return {
+        action: 'Funnel order bump updated',
+        entity: 'Funnel',
+        detail: site ? `${site.name} · ${action.patch.title ?? bump?.title ?? ''}` : action.patch.title,
+      };
+    }
+    case 'site/bump/delete': {
+      const site = byId(state.sites, action.siteId);
+      const bump = site?.checkout?.bumps.find((b) => b.id === action.id);
+      return {
+        action: 'Funnel order bump removed',
+        entity: 'Funnel',
+        detail: site ? `${site.name} · ${bump?.title ?? ''}` : undefined,
       };
     }
     case 'site/duplicate':

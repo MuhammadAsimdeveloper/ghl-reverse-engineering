@@ -55,7 +55,7 @@ npm run lint       # ESLint (flat config, TypeScript + React hooks rules)
 | Social Planner | `/social` | Draft → scheduled → published board, post composer |
 | Prospecting | `/prospecting` | Scored prospect table, filters, one-click import to contacts |
 | Media Library | `/media` | Folder/type filters, asset grid, upload + delete |
-| Funnels | `/funnels` | Editable step builder (rename, reorder, per-step opt-in rate), duplicate, publish toggle |
+| Funnels | `/funnels` | Editable step builder (rename, reorder, per-step opt-in rate), checkout offers with order bumps, simulated funnel checkout, duplicate, publish toggle |
 | Websites | `/websites` | Page table with reorder/edit/delete, per-page hero editor (headline, subhead, CTA, theme) and a themed site preview |
 | Forms & Surveys | `/forms` | Type tabs, live toggles, field editor with types/options/required flags, conditional logic (`show this when answer equals…`) and an interactive branching preview |
 | Workflows | `/workflows` | Editable automation builder — rename, retrigger, reorder/add/edit/remove steps with wait delays |
@@ -91,7 +91,7 @@ src/
 
 There is no backend. `StoreProvider` holds the whole workspace in a `useReducer`, and every
 action returns a new immutable state. The state is mirrored into `localStorage` under
-`ghl-lite.workspace.v10` after each change, so your edits survive a refresh. **Settings → Workspace
+`ghl-lite.workspace.v11` after each change, so your edits survive a refresh. **Settings → Workspace
 data → Reset** restores the seed. A derived audit log records every logged mutation, and
 snippets resolve `{{contact.*}}` and `{{custom_values.*}}` tokens when inserted into a reply.
 
@@ -124,6 +124,12 @@ keystroke instead of persisted as a visible flag. Email template bodies keep the
 helper used by snippets whenever a preview or copy action needs rendered text. Website page
 content (headline, subhead, CTA, theme) lives on the `SitePage` record, so the page editor drafts
 a patch locally and the site preview re-renders straight from state on save.
+
+Funnel order bumps work the same way: the funnel stores the main-offer product and a bump list
+(title, copy, discounted price, enabled flag), while the checkout preview recomputes the order
+total from the accepted checkboxes on every toggle. Completing the preview reuses the atomic
+`store/checkout` action, so the order records the accepted bump titles and the paid invoice,
+coupon redemption and audit entry are written in one dispatch.
 
 To add a field or entity:
 

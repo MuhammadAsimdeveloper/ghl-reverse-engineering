@@ -3,8 +3,8 @@ import { Icon } from '../components/Icon';
 import { Modal } from '../components/Modal';
 import { Badge, PageHeader, StatCard, StatusBadge, Switch } from '../components/ui';
 import { uid, useStore } from '../lib/store';
-import { num, pct } from '../lib/format';
-import type { Site, SitePage } from '../lib/types';
+import { currency, num, pct } from '../lib/format';
+import type { Order, OrderBump, Site, SitePage } from '../lib/types';
 
 const BANNERS = [
   'linear-gradient(135deg, #4f46e5, #7c3aed)',
@@ -19,6 +19,16 @@ function slugPath(name: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
   return slug ? `/${slug}` : '/';
+}
+
+const roundCents = (value: number) => Math.round(value * 100) / 100;
+
+function nextNumber(prefix: string, rows: Array<{ number: string }>, floor: number): string {
+  const highest = rows.reduce((max, row) => {
+    const parsed = Number(row.number.replace(/\D/g, ''));
+    return Number.isFinite(parsed) ? Math.max(max, parsed) : max;
+  }, floor);
+  return `${prefix}-${highest + 1}`;
 }
 
 export default function Funnels() {
@@ -48,6 +58,9 @@ export default function Funnels() {
         visits: 0,
         optins: 0,
         pages: funnel.pages.map((page) => ({ ...page, id: uid('fp'), visits: 0, optins: 0 })),
+        checkout: funnel.checkout
+          ? { ...funnel.checkout, bumps: funnel.checkout.bumps.map((b) => ({ ...b, id: uid('ob') })) }
+          : undefined,
       },
     });
   };
@@ -76,57 +89,65 @@ export default function Funnels() {
       </div>
 
       <div className="grid grid--2">
-        {rows.map((funnel, i) => (
-          <div className="card" key={funnel.id}>
-            <div className="site-card__banner" style={{ background: BANNERS[i % BANNERS.length] }}>
-              <Icon name="funnel" size={26} />
+        {rows.map((funnel, i) => {
+          const liveBumps = funnel.checkout?.bumps.filter((b) => b.enabled).length ?? 0;
+          return (
+            <div className="card" key={funnel.id}>
+              <div className="site-card__banner" style={{ background: BANNERS[i % BANNERS.length] }}>
+                <Icon name="funnel" size={26} />
+              </div>
+              <div className="card__body">
+                <div className="row" style={{ gap: 8, marginBottom: 4 }}>
+                  <strong style={{ fontSize: 14.5, letterSpacing: '-0.01em' }}>{funnel.name}</strong>
+                  <StatusBadge status={funnel.published ? 'published' : 'draft'} />
+                  <span className="spacer" />
+                  <Switch
+                    on={funnel.published}
+                    label={`Toggle ${funnel.name}`}
+                    onChange={() => dispatch({ type: 'site/toggle', id: funnel.id })}
+                  />
+                </div>
+                <div className="row" style={{ gap: 18, margin: '10px 0 12px' }}>
+                  <div>
+                    <div className="cell-sub">Visits</div>
+                    <strong style={{ fontSize: 14 }}>{num(funnel.visits)}</strong>
+                  </div>
+                  <div>
+                    <div className="cell-sub">Opt-ins</div>
+                    <strong style={{ fontSize: 14 }}>{num(funnel.optins)}</strong>
+                  </div>
+                  <div>
+                    <div className="cell-sub">Conversion</div>
+                    <strong style={{ fontSize: 14, color: 'var(--green)' }}>{pct(funnel.optins, funnel.visits || 1)}</strong>
+                  </div>
+                </div>
+                <div className="funnel-path">
+                  {funnel.pages.map((page, idx) => (
+                    <span key={page.id} className="row" style={{ gap: 6 }}>
+                      {idx > 0 && <Icon name="chevron-right" size={13} className="funnel-arrow" />}
+                      <span className="funnel-step">{page.name}</span>
+                    </span>
+                  ))}
+                </div>
+                <div className="row" style={{ gap: 8, marginTop: 14 }}>
+                  <button className="btn btn--sm" onClick={() => setEditingId(funnel.id)}>
+                    <Icon name="sliders" size={14} /> Open builder
+                  </button>
+                  <button className="btn btn--sm" onClick={() => duplicate(funnel)}>
+                    <Icon name="copy" size={14} /> Duplicate
+                  </button>
+                  <span className="spacer" />
+                  {liveBumps > 0 && (
+                    <Badge tone="violet">
+                      {liveBumps} bump{liveBumps === 1 ? '' : 's'}
+                    </Badge>
+                  )}
+                  <Badge>{funnel.pages.length} steps</Badge>
+                </div>
+              </div>
             </div>
-            <div className="card__body">
-              <div className="row" style={{ gap: 8, marginBottom: 4 }}>
-                <strong style={{ fontSize: 14.5, letterSpacing: '-0.01em' }}>{funnel.name}</strong>
-                <StatusBadge status={funnel.published ? 'published' : 'draft'} />
-                <span className="spacer" />
-                <Switch
-                  on={funnel.published}
-                  label={`Toggle ${funnel.name}`}
-                  onChange={() => dispatch({ type: 'site/toggle', id: funnel.id })}
-                />
-              </div>
-              <div className="row" style={{ gap: 18, margin: '10px 0 12px' }}>
-                <div>
-                  <div className="cell-sub">Visits</div>
-                  <strong style={{ fontSize: 14 }}>{num(funnel.visits)}</strong>
-                </div>
-                <div>
-                  <div className="cell-sub">Opt-ins</div>
-                  <strong style={{ fontSize: 14 }}>{num(funnel.optins)}</strong>
-                </div>
-                <div>
-                  <div className="cell-sub">Conversion</div>
-                  <strong style={{ fontSize: 14, color: 'var(--green)' }}>{pct(funnel.optins, funnel.visits || 1)}</strong>
-                </div>
-              </div>
-              <div className="funnel-path">
-                {funnel.pages.map((page, idx) => (
-                  <span key={page.id} className="row" style={{ gap: 6 }}>
-                    {idx > 0 && <Icon name="chevron-right" size={13} className="funnel-arrow" />}
-                    <span className="funnel-step">{page.name}</span>
-                  </span>
-                ))}
-              </div>
-              <div className="row" style={{ gap: 8, marginTop: 14 }}>
-                <button className="btn btn--sm" onClick={() => setEditingId(funnel.id)}>
-                  <Icon name="sliders" size={14} /> Open builder
-                </button>
-                <button className="btn btn--sm" onClick={() => duplicate(funnel)}>
-                  <Icon name="copy" size={14} /> Duplicate
-                </button>
-                <span className="spacer" />
-                <Badge>{funnel.pages.length} steps</Badge>
-              </div>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {editing && <FunnelBuilder funnel={editing} onClose={() => setEditingId(null)} />}
@@ -135,9 +156,15 @@ export default function Funnels() {
 }
 
 function FunnelBuilder({ funnel, onClose }: { funnel: Site; onClose: () => void }) {
-  const { dispatch } = useStore();
+  const { state, dispatch } = useStore();
   const [name, setName] = useState('');
   const [path, setPath] = useState('');
+  const [bumpProductId, setBumpProductId] = useState('');
+  const [preview, setPreview] = useState(false);
+
+  const activeProducts = state.products.filter((p) => p.active);
+  const checkout = funnel.checkout;
+  const offer = checkout ? state.products.find((p) => p.id === checkout.productId) : undefined;
 
   const addStep = () => {
     const trimmed = name.trim();
@@ -155,6 +182,21 @@ function FunnelBuilder({ funnel, onClose }: { funnel: Site; onClose: () => void 
     setPath('');
   };
 
+  const addBump = () => {
+    const product = activeProducts.find((p) => p.id === bumpProductId);
+    if (!product) return;
+    const bump: OrderBump = {
+      id: uid('ob'),
+      productId: product.id,
+      title: `Add ${product.name}`,
+      copy: `${product.name} at 20% off when you order today.`,
+      price: roundCents(product.price * 0.8),
+      enabled: true,
+    };
+    dispatch({ type: 'site/bump/add', siteId: funnel.id, bump });
+    setBumpProductId('');
+  };
+
   return (
     <Modal
       title={funnel.name}
@@ -164,6 +206,9 @@ function FunnelBuilder({ funnel, onClose }: { funnel: Site; onClose: () => void 
         <>
           <button className="btn" onClick={onClose}>
             Close
+          </button>
+          <button className="btn" type="button" disabled={!checkout} onClick={() => setPreview(true)}>
+            <Icon name="eye" size={14} /> Preview checkout
           </button>
           <button
             className="btn btn--primary"
@@ -302,6 +347,449 @@ function FunnelBuilder({ funnel, onClose }: { funnel: Site; onClose: () => void 
           <Icon name="plus" size={14} /> Add step
         </button>
       </div>
+
+      <div className="divider" />
+      <div className="row row--between" style={{ marginBottom: 8 }}>
+        <strong style={{ fontSize: 13 }}>Checkout & order bumps</strong>
+        {checkout && (
+          <Badge tone="violet">
+            {checkout.bumps.filter((b) => b.enabled).length} live bump
+            {checkout.bumps.filter((b) => b.enabled).length === 1 ? '' : 's'}
+          </Badge>
+        )}
+      </div>
+
+      {!checkout ? (
+        <div className="grid grid--2" style={{ alignItems: 'end' }}>
+          <div className="field">
+            <label htmlFor="funnel-offer">Main offer</label>
+            <select
+              id="funnel-offer"
+              className="select"
+              value=""
+              onChange={(e) => {
+                if (e.target.value) {
+                  dispatch({ type: 'site/checkout/set', siteId: funnel.id, productId: e.target.value });
+                }
+              }}
+            >
+              <option value="" disabled>
+                Choose a product…
+              </option>
+              {activeProducts.map((product) => (
+                <option key={product.id} value={product.id}>
+                  {product.name} — {currency(product.price)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="hint">Add a checkout to sell one product and attach order bumps to it.</div>
+        </div>
+      ) : (
+        <div className="stack" style={{ gap: 10 }}>
+          <div className="grid grid--2" style={{ alignItems: 'end' }}>
+            <div className="field">
+              <label htmlFor="funnel-offer">Main offer</label>
+              <select
+                id="funnel-offer"
+                className="select"
+                value={checkout.productId}
+                onChange={(e) =>
+                  dispatch({ type: 'site/checkout/set', siteId: funnel.id, productId: e.target.value })
+                }
+              >
+                {activeProducts.map((product) => (
+                  <option key={product.id} value={product.id}>
+                    {product.name} — {currency(product.price)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="hint">
+              {offer
+                ? `${currency(offer.price)} · ${offer.kind === 'recurring' ? 'recurring' : 'one-time'}`
+                : 'The product on this funnel is no longer active.'}
+            </div>
+          </div>
+
+          {checkout.bumps.length === 0 ? (
+            <div className="hint">No bumps yet — attach an add-on offer below.</div>
+          ) : (
+            <div className="stack" style={{ gap: 8 }}>
+              {checkout.bumps.map((bump) => {
+                const product = state.products.find((p) => p.id === bump.productId);
+                const overpriced = product !== undefined && bump.price >= product.price;
+                return (
+                  <div
+                    className="list-row"
+                    key={bump.id}
+                    style={{
+                      border: '1px solid var(--line)',
+                      borderRadius: 9,
+                      background: 'var(--surface-2)',
+                      alignItems: 'flex-start',
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0, display: 'grid', gap: 8 }}>
+                      <div className="grid grid--3" style={{ gap: 8, alignItems: 'end' }}>
+                        <div className="field">
+                          <label htmlFor={`bump-product-${bump.id}`}>Product</label>
+                          <select
+                            id={`bump-product-${bump.id}`}
+                            className="select"
+                            value={bump.productId}
+                            onChange={(e) =>
+                              dispatch({
+                                type: 'site/bump/update',
+                                siteId: funnel.id,
+                                id: bump.id,
+                                patch: { productId: e.target.value },
+                              })
+                            }
+                          >
+                            {activeProducts.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="field">
+                          <label htmlFor={`bump-title-${bump.id}`}>Offer title</label>
+                          <input
+                            id={`bump-title-${bump.id}`}
+                            className="input"
+                            value={bump.title}
+                            onChange={(e) =>
+                              dispatch({
+                                type: 'site/bump/update',
+                                siteId: funnel.id,
+                                id: bump.id,
+                                patch: { title: e.target.value },
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="field">
+                          <label htmlFor={`bump-price-${bump.id}`}>Bump price</label>
+                          <input
+                            id={`bump-price-${bump.id}`}
+                            className="input"
+                            type="number"
+                            min={0}
+                            step={1}
+                            value={bump.price}
+                            onChange={(e) => {
+                              const value = Number(e.target.value);
+                              if (!Number.isFinite(value) || value < 0) return;
+                              dispatch({
+                                type: 'site/bump/update',
+                                siteId: funnel.id,
+                                id: bump.id,
+                                patch: { price: roundCents(value) },
+                              });
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <div className="field">
+                        <label htmlFor={`bump-copy-${bump.id}`}>Description</label>
+                        <input
+                          id={`bump-copy-${bump.id}`}
+                          className="input"
+                          value={bump.copy}
+                          onChange={(e) =>
+                            dispatch({
+                              type: 'site/bump/update',
+                              siteId: funnel.id,
+                              id: bump.id,
+                              patch: { copy: e.target.value },
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="row" style={{ gap: 8 }}>
+                        <span className="cell-sub">
+                          List {currency(product?.price ?? 0)} → {currency(bump.price)}
+                        </span>
+                        {overpriced && (
+                          <span className="hint" style={{ color: 'var(--amber)' }}>
+                            Bump price should sit below the list price.
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="row" style={{ gap: 6, alignItems: 'center' }}>
+                      <Switch
+                        on={bump.enabled}
+                        label={`Toggle ${bump.title}`}
+                        onChange={() =>
+                          dispatch({
+                            type: 'site/bump/update',
+                            siteId: funnel.id,
+                            id: bump.id,
+                            patch: { enabled: !bump.enabled },
+                          })
+                        }
+                      />
+                      <button
+                        type="button"
+                        className="icon-btn"
+                        aria-label={`Delete bump ${bump.title}`}
+                        onClick={() => dispatch({ type: 'site/bump/delete', siteId: funnel.id, id: bump.id })}
+                      >
+                        <Icon name="trash" size={15} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="grid grid--2" style={{ alignItems: 'end' }}>
+            <div className="field">
+              <label htmlFor="bump-product">Add a bump</label>
+              <select
+                id="bump-product"
+                className="select"
+                value={bumpProductId}
+                onChange={(e) => setBumpProductId(e.target.value)}
+              >
+                <option value="" disabled>
+                  Choose a product…
+                </option>
+                {activeProducts.map((product) => (
+                  <option key={product.id} value={product.id}>
+                    {product.name} — list {currency(product.price)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button className="btn" type="button" disabled={!bumpProductId} onClick={addBump}>
+              <Icon name="plus" size={14} /> Add bump
+            </button>
+          </div>
+        </div>
+      )}
+
+      {preview && <FunnelCheckoutPreview funnel={funnel} onClose={() => setPreview(false)} />}
+    </Modal>
+  );
+}
+
+function FunnelCheckoutPreview({ funnel, onClose }: { funnel: Site; onClose: () => void }) {
+  const { state, dispatch } = useStore();
+  const checkout = funnel.checkout;
+  const offer = checkout ? state.products.find((p) => p.id === checkout.productId) : undefined;
+  const bumps = (checkout?.bumps ?? []).filter(
+    (b) => b.enabled && state.products.some((p) => p.id === b.productId),
+  );
+  const [accepted, setAccepted] = useState<string[]>([]);
+  const [contactId, setContactId] = useState(state.contacts[0]?.id ?? '');
+  const [receipt, setReceipt] = useState<{ number: string; total: number; items: number; bumps: string[] } | null>(
+    null,
+  );
+
+  if (!checkout || !offer) return null;
+
+  const acceptedBumps = bumps.filter((b) => accepted.includes(b.id));
+  const total = roundCents(offer.price + acceptedBumps.reduce((sum, b) => sum + b.price, 0));
+  const contact = state.contacts.find((c) => c.id === contactId);
+
+  const toggle = (id: string) =>
+    setAccepted((current) =>
+      current.includes(id) ? current.filter((x) => x !== id) : [...current, id],
+    );
+
+  const complete = () => {
+    if (!contactId) return;
+    const at = new Date().toISOString();
+    const order: Order = {
+      id: uid('od'),
+      number: nextNumber('ORD', state.orders, 3184),
+      contactId,
+      items: 1 + acceptedBumps.length,
+      total,
+      status: 'paid',
+      at,
+      gateway: state.paymentGateways.find((g) => g.connected)?.name,
+      bumps: acceptedBumps.map((b) => b.title),
+    };
+    dispatch({
+      type: 'store/checkout',
+      order,
+      invoice: {
+        id: uid('inv'),
+        number: nextNumber('INV', state.invoices, 1047),
+        contactId,
+        amount: total,
+        status: 'paid',
+        issuedAt: at,
+      },
+    });
+    setReceipt({ number: order.number, total: order.total, items: order.items, bumps: order.bumps ?? [] });
+  };
+
+  return (
+    <Modal
+      title={receipt ? 'Order complete' : `Checkout · ${funnel.name}`}
+      wide
+      onClose={onClose}
+      footer={
+        receipt ? (
+          <button className="btn" type="button" onClick={onClose}>
+            Close
+          </button>
+        ) : (
+          <>
+            <button className="btn" type="button" onClick={onClose}>
+              Cancel
+            </button>
+            <button className="btn btn--primary" type="button" disabled={!contactId} onClick={complete}>
+              <Icon name="lock" size={14} /> Complete order · {currency(total)}
+            </button>
+          </>
+        )
+      }
+    >
+      {receipt ? (
+        <div className="stack" style={{ gap: 12 }}>
+          <div className="row" style={{ gap: 10 }}>
+            <span className="avatar avatar--md" style={{ background: 'var(--green-soft)', color: 'var(--green)' }}>
+              <Icon name="check" size={18} />
+            </span>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 650 }}>{currency(receipt.total)} charged</div>
+              <div className="cell-sub">
+                {receipt.number} · {receipt.items} item{receipt.items === 1 ? '' : 's'}
+              </div>
+            </div>
+          </div>
+          <div className="stack" style={{ gap: 6 }}>
+            <div className="row row--between">
+              <span className="hint">Main offer</span>
+              <span>{offer.name}</span>
+            </div>
+            <div className="row row--between">
+              <span className="hint">Order bumps</span>
+              <span>{receipt.bumps.length ? receipt.bumps.join(', ') : 'None'}</span>
+            </div>
+            <div className="row row--between">
+              <span className="hint">Customer</span>
+              <span>{contact ? `${contact.firstName} ${contact.lastName}` : 'Unknown contact'}</span>
+            </div>
+          </div>
+          <div className="callout">
+            A paid order and invoice were written to the workspace, and the checkout was recorded in the audit log.
+          </div>
+        </div>
+      ) : (
+        <div className="stack" style={{ gap: 12 }}>
+          <div className="row row--between">
+            <div>
+              <div className="cell-sub">Order form</div>
+              <div style={{ fontSize: 13, fontFamily: 'var(--font-mono)' }}>
+                go.agency.test/{funnel.name.toLowerCase().replace(/\s+/g, '-')}/checkout
+              </div>
+            </div>
+            <Badge tone="green">Secure checkout</Badge>
+          </div>
+
+          <div
+            className="stack"
+            style={{ gap: 4, border: '1px solid var(--line)', borderRadius: 10, padding: 14, background: 'var(--surface-2)' }}
+          >
+            <div className="row row--between">
+              <strong style={{ fontSize: 13.5 }}>{offer.name}</strong>
+              <strong style={{ fontSize: 13.5 }}>{currency(offer.price)}</strong>
+            </div>
+            <span className="cell-sub">
+              {offer.kind === 'recurring' ? 'Billed monthly after checkout' : 'Charged once today'} · main offer
+            </span>
+          </div>
+
+          {bumps.length === 0 ? (
+            <div className="hint">No order bumps are enabled on this funnel yet.</div>
+          ) : (
+            <div className="stack" style={{ gap: 8 }}>
+              {bumps.map((bump) => {
+                const product = state.products.find((p) => p.id === bump.productId);
+                const checked = accepted.includes(bump.id);
+                return (
+                  <label
+                    key={bump.id}
+                    className="checkbox"
+                    style={{
+                      alignItems: 'flex-start',
+                      border: `1px solid ${checked ? 'var(--accent)' : 'var(--line)'}`,
+                      borderRadius: 10,
+                      padding: 12,
+                      background: checked ? 'var(--accent-soft)' : 'var(--surface-2)',
+                    }}
+                  >
+                    <input type="checkbox" checked={checked} onChange={() => toggle(bump.id)} />
+                    <span style={{ flex: 1 }}>
+                      <span className="row row--between" style={{ gap: 8 }}>
+                        <strong style={{ fontSize: 13 }}>{bump.title}</strong>
+                        <span>
+                          {product && product.price > bump.price && (
+                            <span className="cell-sub" style={{ textDecoration: 'line-through', marginRight: 6 }}>
+                              {currency(product.price)}
+                            </span>
+                          )}
+                          <strong style={{ fontSize: 13 }}>{currency(bump.price)}</strong>
+                        </span>
+                      </span>
+                      <span className="cell-sub" style={{ display: 'block', marginTop: 2 }}>
+                        {bump.copy}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="field">
+            <label htmlFor="checkout-contact">Customer</label>
+            <select
+              id="checkout-contact"
+              className="select"
+              value={contactId}
+              onChange={(e) => setContactId(e.target.value)}
+            >
+              {state.contacts.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.firstName} {c.lastName} — {c.company}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="divider" />
+          <div className="stack" style={{ gap: 6 }}>
+            <div className="row row--between">
+              <span className="hint">Main offer</span>
+              <span>{currency(offer.price)}</span>
+            </div>
+            {acceptedBumps.map((bump) => (
+              <div className="row row--between" key={bump.id}>
+                <span className="hint">{bump.title}</span>
+                <span style={{ color: 'var(--green)' }}>+{currency(bump.price)}</span>
+              </div>
+            ))}
+            <div className="row row--between" style={{ marginTop: 2 }}>
+              <strong style={{ fontSize: 13 }}>Total due</strong>
+              <strong style={{ fontSize: 20, letterSpacing: '-0.02em' }}>{currency(total)}</strong>
+            </div>
+          </div>
+          <div className="hint">
+            Simulated checkout — completing it writes a paid order and invoice. No card fields or buyer data are
+            collected.
+          </div>
+        </div>
+      )}
     </Modal>
   );
 }
