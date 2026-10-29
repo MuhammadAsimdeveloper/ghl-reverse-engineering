@@ -3,7 +3,7 @@
 An **original, from-scratch** implementation of an all-in-one agency CRM, built to mirror the
 module layout of a typical agency-marketing workspace: dashboard, inbox, calendars, contacts,
 pipelines, payments, contracts, campaigns, social planner, prospecting, media, funnels,
-websites, forms, automations, memberships, reputation and reporting.
+websites, forms, automations, memberships, reputation, phone and reporting.
 
 This project contains **no code, assets or data from any commercial product**. Every component,
 style and data record here was written for this repository. It exists so you can read a
@@ -40,6 +40,7 @@ npm run lint       # ESLint (flat config, TypeScript + React hooks rules)
 | --- | --- | --- |
 | Dashboard | `/` | KPI cards, revenue line chart, pipeline donut, today's agenda |
 | Conversations | `/conversations` | Unified two-pane inbox across SMS, email, Facebook, Instagram, WhatsApp and web chat; channel filter with unread counts; new-conversation composer that reuses the contact + channel thread; email subject, SMS segment and WhatsApp character counters; snippet picker |
+| Phone System | `/phone` | Workspace numbers with assignment, status and voice/SMS flags, derived call stats (answer rate, average talk time), call log with direction/outcome filters, log-a-call modal and follow-up handling for missed calls and voicemails |
 | Snippets | `/snippets` | Saved replies with optional email subject, channel targeting, merge tokens and usage counts |
 | Calendars | `/calendars` | Month grid, weekly hours per calendar, round-robin assignees, overlap blocking |
 | Contacts | `/contacts` | Searchable/filterable table, tags, bulk tag/status/delete, create + edit with contact custom fields |
@@ -68,6 +69,7 @@ npm run lint       # ESLint (flat config, TypeScript + React hooks rules)
 | Reporting | `/reporting` | Custom widget dashboard, multi-series charts, saveable metric reports with prior-period deltas, team table |
 | Settings | `/settings` | Business profile, team roles, custom fields, integrations, reset |
 | Sub-accounts | `/sub-accounts` | Agency-level client accounts, plan catalog, seat/contact limits, derived MRR |
+| Account Snapshots | `/snapshots` | Point-in-time copies of the workspace with restore, JSON export, delete and a five-slot rotation |
 
 ## Architecture
 
@@ -95,7 +97,7 @@ src/
 
 There is no backend. `StoreProvider` holds the whole workspace in a `useReducer`, and every
 action returns a new immutable state. The state is mirrored into `localStorage` under
-`operza.workspace.v13` after each change, so your edits survive a refresh. **Settings → Workspace
+`operza.workspace.v14` after each change, so your edits survive a refresh. **Settings → Workspace
 data → Reset** restores the seed. A derived audit log records every logged mutation, and
 snippets resolve `{{contact.*}}` and `{{custom_values.*}}` tokens when inserted into a reply.
 
@@ -153,6 +155,16 @@ existing thread for that pair instead of duplicating it; the same contact can ho
 and a WhatsApp thread at once. Contact custom fields are stored as a `name → value` record on the
 contact and rendered from the field definitions in Settings, which keeps the form in sync when a
 definition is added without migrating old records.
+
+Call stats follow the same derived-first rule: calls today, the inbound answer rate, the average
+talk time of connected calls and the follow-up count for unhandled missed calls or voicemails are
+all computed from the call list on every render, so editing a call immediately reprices the stat
+strip. A phone number stores only its label, assignment, status and channel flags — nothing about
+the call itself. Account snapshots capture a shallow copy of every collection except the snapshot
+archive and audit trail. Restoring spreads that copy back into state and then reattaches the live
+archive and audit log, so a rollback can never destroy its own undo history; the newest five
+snapshots are kept and the oldest rotates out. Export serialises one snapshot to a JSON blob and
+triggers a download entirely in the browser.
 
 To add a field or entity:
 

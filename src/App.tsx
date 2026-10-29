@@ -2,6 +2,8 @@ import { Route, Routes } from 'react-router-dom';
 import { AppShell } from './components/AppShell';
 import Dashboard from './pages/Dashboard';
 import Conversations from './pages/Conversations';
+import PhoneSystem from './pages/PhoneSystem';
+import Snapshots from './pages/Snapshots';
 import Snippets from './pages/Snippets';
 import SubAccounts from './pages/SubAccounts';
 import Calendars from './pages/Calendars';
@@ -46,6 +48,7 @@ export default function App() {
       <Route element={<AppShell />}>
         <Route index element={<Dashboard />} />
         <Route path="conversations" element={<Conversations />} />
+        <Route path="phone" element={<PhoneSystem />} />
         <Route path="snippets" element={<Snippets />} />
         <Route path="calendars" element={<Calendars />} />
         <Route path="contacts" element={<Contacts />} />
@@ -82,6 +85,7 @@ export default function App() {
         <Route path="reporting" element={<Reporting />} />
         <Route path="settings" element={<Settings />} />
         <Route path="sub-accounts" element={<SubAccounts />} />
+        <Route path="snapshots" element={<Snapshots />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

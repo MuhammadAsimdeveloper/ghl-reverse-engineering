@@ -12,6 +12,7 @@ import type {
   Appointment,
   AuditEntry,
   CalendarDef,
+  CallRecord,
   Campaign,
   Channel,
   Contact,
@@ -33,6 +34,7 @@ import type {
   OrderBump,
   PaymentGateway,
   PaymentLink,
+  PhoneNumber,
   Product,
   QrCode,
   ReviewRequest,
@@ -41,6 +43,7 @@ import type {
   Site,
   SitePage,
   SmartList,
+  Snapshot,
   Snippet,
   SocialPost,
   SubAccount,
@@ -53,7 +56,8 @@ import type {
   WorkflowRun,
 } from './types';
 
-const STORAGE_KEY = 'operza.workspace.v13';
+const STORAGE_KEY = 'operza.workspace.v14';
+const SNAPSHOT_LIMIT = 5;
 
 export function uid(prefix = 'id'): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
@@ -182,6 +186,17 @@ export type Action =
   | { type: 'customField/add'; field: CustomField }
   | { type: 'team/add'; member: TeamMember }
   | { type: 'team/role'; id: string; role: TeamMember['role'] }
+  | { type: 'call/log'; call: CallRecord }
+  | { type: 'call/handled'; id: string }
+  | { type: 'call/delete'; id: string }
+  | {
+      type: 'number/update';
+      id: string;
+      patch: Partial<Pick<PhoneNumber, 'label' | 'assignedTo' | 'status' | 'voice' | 'sms'>>;
+    }
+  | { type: 'snapshot/create'; id: string; name: string }
+  | { type: 'snapshot/restore'; id: string }
+  | { type: 'snapshot/delete'; id: string }
   | { type: 'notifications/readAll' }
   | { type: 'workspace/reset' };
 
@@ -202,6 +217,7 @@ function pruneContacts(state: WorkspaceState, ids: Set<string>): WorkspaceState 
     subscriptions: state.subscriptions.filter((s) => keep(s.contactId)),
     tasks: state.tasks.filter((t) => !t.contactId || keep(t.contactId)),
     workflowRuns: state.workflowRuns.filter((r) => keep(r.contactId)),
+    calls: state.calls.filter((c) => keep(c.contactId)),
   };
 }
 
@@ -1052,6 +1068,49 @@ function applyAction(state: WorkspaceState, action: Action): WorkspaceState {
     case 'notifications/readAll':
       return { ...state, notifications: state.notifications.map((n) => ({ ...n, read: true })) };
 
+    case 'call/log':
+      return { ...state, calls: [action.call, ...state.calls] };
+
+    case 'call/handled':
+      return {
+        ...state,
+        calls: state.calls.map((c) => (c.id === action.id ? { ...c, handled: true } : c)),
+      };
+
+    case 'call/delete':
+      return { ...state, calls: state.calls.filter((c) => c.id !== action.id) };
+
+    case 'number/update':
+      return {
+        ...state,
+        phoneNumbers: state.phoneNumbers.map((n) =>
+          n.id === action.id ? { ...n, ...action.patch } : n,
+        ),
+      };
+
+    case 'snapshot/create': {
+      // Neither the archive itself nor the live audit trail is copied into a snapshot.
+      const { snapshots, auditLog, ...data } = state;
+      void auditLog;
+      const snapshot: Snapshot = {
+        id: action.id,
+        name: action.name,
+        createdAt: new Date().toISOString(),
+        data,
+      };
+      return { ...state, snapshots: [snapshot, ...snapshots].slice(0, SNAPSHOT_LIMIT) };
+    }
+
+    case 'snapshot/restore': {
+      const snapshot = state.snapshots.find((s) => s.id === action.id);
+      if (!snapshot) return state;
+      // The archive and audit trail stay as they are; everything else rolls back.
+      return { ...snapshot.data, snapshots: state.snapshots, auditLog: state.auditLog };
+    }
+
+    case 'snapshot/delete':
+      return { ...state, snapshots: state.snapshots.filter((s) => s.id !== action.id) };
+
     case 'workspace/reset':
       return seed;
 
@@ -1615,6 +1674,47 @@ function auditMeta(
         action: `Review marked ${action.status}`,
         entity: 'Reputation',
         detail: contactName(byId(state.reviews, action.id)?.contactId ?? ''),
+      };
+
+    case 'call/log':
+      return {
+        action: 'Call logged',
+        entity: 'Phone',
+        detail: `${contactName(action.call.contactId)} · ${action.call.direction} ${action.call.outcome}`,
+      };
+    case 'call/handled':
+      return {
+        action: 'Call marked handled',
+        entity: 'Phone',
+        detail: contactName(byId(state.calls, action.id)?.contactId ?? ''),
+      };
+    case 'call/delete':
+      return {
+        action: 'Call log entry deleted',
+        entity: 'Phone',
+        detail: contactName(byId(state.calls, action.id)?.contactId ?? ''),
+      };
+    case 'number/update': {
+      const number = byId(state.phoneNumbers, action.id);
+      return {
+        action: 'Phone number updated',
+        entity: 'Phone',
+        detail: number ? `${number.label} · ${number.number}` : undefined,
+      };
+    }
+    case 'snapshot/create':
+      return { action: 'Snapshot created', entity: 'Snapshot', detail: action.name };
+    case 'snapshot/restore':
+      return {
+        action: 'Snapshot restored',
+        entity: 'Snapshot',
+        detail: byId(state.snapshots, action.id)?.name,
+      };
+    case 'snapshot/delete':
+      return {
+        action: 'Snapshot deleted',
+        entity: 'Snapshot',
+        detail: byId(state.snapshots, action.id)?.name,
       };
 
     default:

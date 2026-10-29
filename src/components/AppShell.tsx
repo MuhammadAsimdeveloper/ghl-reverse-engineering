@@ -22,6 +22,7 @@ function Sidebar({ onNavigate }: { onNavigate: () => void }) {
       items: [
         { to: '/', label: 'Dashboard', icon: 'dashboard', end: true },
         { to: '/conversations', label: 'Conversations', icon: 'message', badge: unread },
+        { to: '/phone', label: 'Phone System', icon: 'phone' },
         { to: '/calendars', label: 'Calendars', icon: 'calendar' },
         { to: '/contacts', label: 'Contacts', icon: 'users' },
         { to: '/tasks', label: 'Tasks', icon: 'task' },
@@ -80,7 +81,10 @@ function Sidebar({ onNavigate }: { onNavigate: () => void }) {
     },
     {
       label: 'Agency',
-      items: [{ to: '/sub-accounts', label: 'Sub-accounts', icon: 'building' }],
+      items: [
+        { to: '/sub-accounts', label: 'Sub-accounts', icon: 'building' },
+        { to: '/snapshots', label: 'Account Snapshots', icon: 'refresh' },
+      ],
     },
     {
       label: 'Workspace',
@@ -322,8 +326,10 @@ function TopBar({ onOpenNav }: { onOpenNav: () => void }) {
   const titles: Record<string, string> = {
     '/': 'Dashboard',
     '/conversations': 'Conversations',
+    '/phone': 'Phone System',
     '/snippets': 'Snippets',
     '/sub-accounts': 'Sub-accounts',
+    '/snapshots': 'Account Snapshots',
     '/calendars': 'Calendars',
     '/contacts': 'Contacts',
     '/tasks': 'Tasks',

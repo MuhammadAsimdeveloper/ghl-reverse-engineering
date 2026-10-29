@@ -684,6 +684,49 @@ export interface Notification {
   read: boolean;
 }
 
+export type PhoneNumberType = 'local' | 'toll_free';
+export type PhoneNumberStatus = 'active' | 'inactive';
+
+export interface PhoneNumber {
+  id: ID;
+  /** Display number in E.164-ish formatting. */
+  number: string;
+  label: string;
+  type: PhoneNumberType;
+  /** Team member who answers calls on this line. */
+  assignedTo: string;
+  status: PhoneNumberStatus;
+  voice: boolean;
+  sms: boolean;
+}
+
+export type CallDirection = 'inbound' | 'outbound';
+export type CallOutcome = 'completed' | 'missed' | 'voicemail';
+
+export interface CallRecord {
+  id: ID;
+  contactId: ID;
+  numberId: ID;
+  direction: CallDirection;
+  outcome: CallOutcome;
+  startedAt: string;
+  /** Talk time in seconds; 0 for missed calls that never connected. */
+  durationSec: number;
+  notes?: string;
+  /** Missed calls and voicemails are followed up, then marked handled. */
+  handled: boolean;
+}
+
+/** Everything a snapshot captures — the archive itself and the audit trail are excluded. */
+export type SnapshotData = Omit<WorkspaceState, 'snapshots' | 'auditLog'>;
+
+export interface Snapshot {
+  id: ID;
+  name: string;
+  createdAt: string;
+  data: SnapshotData;
+}
+
 export interface WorkspaceState {
   contacts: Contact[];
   pipelines: Pipeline[];
@@ -730,4 +773,7 @@ export interface WorkspaceState {
   customFields: CustomField[];
   integrations: Integration[];
   notifications: Notification[];
+  phoneNumbers: PhoneNumber[];
+  calls: CallRecord[];
+  snapshots: Snapshot[];
 }

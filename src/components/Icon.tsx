@@ -257,6 +257,7 @@ const paths: Record<string, ReactNode> = {
     </>
   ),
   upload: <path d="M12 16V4m-4 4 4-4 4 4M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />,
+  download: <path d="M12 4v12m-4-4 4 4 4-4M4 20h16" />,
   folder: <path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />,
   'map-pin': (
     <>
