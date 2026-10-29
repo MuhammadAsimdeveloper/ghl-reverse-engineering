@@ -1,9 +1,9 @@
 {
-  "name": "ghl-lite",
+  "name": "operza",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "An original, from-scratch CRM that mirrors the module layout of an all-in-one marketing platform. Educational project.",
+  "description": "Operza — an original, from-scratch agency CRM workspace that mirrors the module layout of an all-in-one marketing platform. Educational project.",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

@@ -94,9 +94,9 @@ function Sidebar({ onNavigate }: { onNavigate: () => void }) {
   return (
     <aside className="sidebar">
       <div className="sidebar__brand">
-        <div className="brand__mark">GL</div>
+        <div className="brand__mark">OP</div>
         <div className="brand__text">
-          <div className="brand__name">GHL Lite</div>
+          <div className="brand__name">Operza</div>
           <div className="brand__sub">Agency Workspace</div>
         </div>
         <button className="icon-btn sidebar__toggle" style={{ marginLeft: 'auto' }} onClick={onNavigate} aria-label="Close navigation">

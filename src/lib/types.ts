@@ -2,7 +2,7 @@
 
 export type ID = string;
 
-export type Channel = 'sms' | 'email' | 'facebook' | 'instagram' | 'webchat';
+export type Channel = 'sms' | 'email' | 'facebook' | 'instagram' | 'whatsapp' | 'webchat';
 
 export type ContactStatus = 'lead' | 'customer' | 'cold';
 
@@ -298,6 +298,17 @@ export interface FormField {
   /** Choices for select fields; ignored by every other type. */
   options: string[];
   showIf?: FieldCondition;
+  /** Survey points keyed by option label; ignored by non-select fields. */
+  points?: Record<string, number>;
+}
+
+export interface FormCompletion {
+  /** Show a running score while the respondent answers. */
+  showScore: boolean;
+  /** Where respondents land after submitting; simulated, never navigated to. */
+  redirectUrl?: string;
+  /** At or above this score the response is a pass. */
+  passingScore?: number;
 }
 
 export interface FormDef {
@@ -307,6 +318,7 @@ export interface FormDef {
   published: boolean;
   submissions: number;
   fields: FormField[];
+  completion?: FormCompletion;
 }
 
 export type WorkflowTriggerKind =

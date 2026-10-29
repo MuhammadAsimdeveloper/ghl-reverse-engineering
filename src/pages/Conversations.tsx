@@ -1,25 +1,37 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Icon } from '../components/Icon';
+import { Modal } from '../components/Modal';
 import { Avatar, Badge, EmptyState } from '../components/ui';
-import { CHANNEL_META, useStore } from '../lib/store';
+import { CHANNEL_META, uid, useStore } from '../lib/store';
 import { relative, timeOf } from '../lib/format';
 import { resolveMerge } from '../lib/merge';
-import type { Snippet } from '../lib/types';
+import type { Channel, Snippet } from '../lib/types';
 
 const FILTERS = ['all', 'unread', 'starred'] as const;
 type Filter = (typeof FILTERS)[number];
+const CHANNELS = Object.keys(CHANNEL_META) as Channel[];
 
 export default function Conversations() {
   const { state, dispatch } = useStore();
   const [filter, setFilter] = useState<Filter>('all');
+  const [channelFilter, setChannelFilter] = useState<Channel | 'all'>('all');
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(state.conversations[0]?.id ?? null);
   const [draft, setDraft] = useState('');
   const [subject, setSubject] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [composing, setComposing] = useState(false);
 
   const contactOf = (id: string) => state.contacts.find((c) => c.id === id);
+
+  const channelUnread = useMemo(() => {
+    const counts: Partial<Record<Channel, number>> = {};
+    for (const c of state.conversations) {
+      if (c.unread > 0) counts[c.channel] = (counts[c.channel] ?? 0) + c.unread;
+    }
+    return counts;
+  }, [state.conversations]);
 
   const conversations = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -27,6 +39,7 @@ export default function Conversations() {
       .filter((c) => {
         if (filter === 'unread' && c.unread === 0) return false;
         if (filter === 'starred' && !c.starred) return false;
+        if (channelFilter !== 'all' && c.channel !== channelFilter) return false;
         if (!q) return true;
         const contact = contactOf(c.contactId);
         const text = `${contact?.firstName ?? ''} ${contact?.lastName ?? ''} ${contact?.company ?? ''}`.toLowerCase();
@@ -38,10 +51,11 @@ export default function Conversations() {
         return bLast.localeCompare(aLast);
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.conversations, state.contacts, filter, query]);
+  }, [state.conversations, state.contacts, filter, channelFilter, query]);
 
   const selected = state.conversations.find((c) => c.id === selectedId) ?? null;
   const selectedContact = selected ? contactOf(selected.contactId) : undefined;
+  const selectedVisible = !!selected && conversations.some((c) => c.id === selected.id);
 
   const openConversation = (id: string) => {
     setSelectedId(id);
@@ -51,8 +65,17 @@ export default function Conversations() {
     dispatch({ type: 'conversation/read', id });
   };
 
+  const startConversation = (id: string) => {
+    setFilter('all');
+    setChannelFilter('all');
+    setQuery('');
+    setComposing(false);
+    openConversation(id);
+  };
+
   const send = () => {
     if (!selected || !draft.trim()) return;
+    if (selected.channel === 'whatsapp' && draft.trim().length > 1024) return;
     dispatch({
       type: 'conversation/send',
       id: selected.id,
@@ -91,7 +114,12 @@ export default function Conversations() {
               <Badge tone="accent">
                 {state.conversations.reduce((s, c) => s + c.unread, 0)} unread
               </Badge>
-              <button className="icon-btn" style={{ marginLeft: 'auto' }} aria-label="Compose">
+              <button
+                className="icon-btn"
+                style={{ marginLeft: 'auto' }}
+                aria-label="New conversation"
+                onClick={() => setComposing(true)}
+              >
                 <Icon name="edit" size={16} />
               </button>
             </div>
@@ -104,6 +132,20 @@ export default function Conversations() {
                 onChange={(e) => setQuery(e.target.value)}
               />
             </div>
+            <select
+              className="select"
+              aria-label="Filter by channel"
+              value={channelFilter}
+              onChange={(e) => setChannelFilter(e.target.value as Channel | 'all')}
+            >
+              <option value="all">All channels</option>
+              {CHANNELS.map((ch) => (
+                <option key={ch} value={ch}>
+                  {CHANNEL_META[ch].label}
+                  {channelUnread[ch] ? ` · ${channelUnread[ch]} unread` : ''}
+                </option>
+              ))}
+            </select>
             <div className="segmented">
               {FILTERS.map((f) => (
                 <button
@@ -154,7 +196,7 @@ export default function Conversations() {
           </div>
         </section>
 
-        {selected && selectedContact ? (
+        {selected && selectedContact && selectedVisible ? (
           <section className="thread">
             <div className="thread__head">
               <button
@@ -171,7 +213,12 @@ export default function Conversations() {
                   {selectedContact.firstName} {selectedContact.lastName}
                 </div>
                 <div className="cell-sub">
-                  {CHANNEL_META[selected.channel].label} · {selectedContact.phone}
+                  {CHANNEL_META[selected.channel].label} ·{' '}
+                  {selected.channel === 'email'
+                    ? selectedContact.email
+                    : selected.channel === 'sms' || selected.channel === 'whatsapp'
+                      ? selectedContact.phone
+                      : selectedContact.company || selectedContact.email}
                 </div>
               </div>
               <div className="card__actions">
@@ -281,7 +328,11 @@ export default function Conversations() {
                 }}
                 rows={1}
               />
-              <button className="btn btn--primary" onClick={send} disabled={!draft.trim()}>
+              <button
+                className="btn btn--primary"
+                onClick={send}
+                disabled={!draft.trim() || (selected.channel === 'whatsapp' && smsChars > 1024)}
+              >
                 <Icon name="send" size={15} /> Send
               </button>
               </div>
@@ -291,6 +342,12 @@ export default function Conversations() {
                   <span>
                     {smsSegments} SMS segment{smsSegments === 1 ? '' : 's'}
                   </span>
+                </div>
+              )}
+              {selected.channel === 'whatsapp' && (
+                <div className="composer__hint">
+                  <span>{smsChars} / 1024 characters</span>
+                  <span>{smsChars > 1024 ? 'Over the WhatsApp limit' : 'Within the WhatsApp limit'}</span>
                 </div>
               )}
             </div>
@@ -305,6 +362,131 @@ export default function Conversations() {
           </section>
         )}
       </div>
+
+      {composing && <NewConversation onClose={() => setComposing(false)} onStarted={startConversation} />}
     </div>
+  );
+}
+
+function NewConversation({
+  onClose,
+  onStarted,
+}: {
+  onClose: () => void;
+  onStarted: (id: string) => void;
+}) {
+  const { state, dispatch } = useStore();
+  const [contactId, setContactId] = useState('');
+  const [channel, setChannel] = useState<Channel>('sms');
+  const [subject, setSubject] = useState('');
+  const [body, setBody] = useState('');
+
+  const contacts = useMemo(
+    () =>
+      [...state.contacts].sort((a, b) =>
+        `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`),
+      ),
+    [state.contacts],
+  );
+  const existing = state.conversations.find(
+    (c) => c.contactId === contactId && c.channel === channel,
+  );
+  const canSend = contactId !== '' && body.trim().length > 0;
+
+  const start = () => {
+    if (!canSend) return;
+    const id = uid('cv');
+    dispatch({
+      type: 'conversation/start',
+      id,
+      contactId,
+      channel,
+      body: body.trim(),
+      subject: channel === 'email' && subject.trim() ? subject.trim() : undefined,
+    });
+    onStarted(existing?.id ?? id);
+  };
+
+  return (
+    <Modal
+      title="New conversation"
+      onClose={onClose}
+      footer={
+        <>
+          <button className="btn" type="button" onClick={onClose}>
+            Cancel
+          </button>
+          <button className="btn btn--primary" type="button" disabled={!canSend} onClick={start}>
+            <Icon name="send" size={14} /> Start conversation
+          </button>
+        </>
+      }
+    >
+      <div className="grid grid--2">
+        <div className="field">
+          <label htmlFor="conversation-contact">Contact</label>
+          <select
+            id="conversation-contact"
+            className="select"
+            value={contactId}
+            onChange={(e) => setContactId(e.target.value)}
+          >
+            <option value="" disabled>
+              Choose a contact…
+            </option>
+            {contacts.map((contact) => (
+              <option key={contact.id} value={contact.id}>
+                {contact.firstName} {contact.lastName}
+                {contact.company ? ` — ${contact.company}` : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor="conversation-channel">Channel</label>
+          <select
+            id="conversation-channel"
+            className="select"
+            value={channel}
+            onChange={(e) => setChannel(e.target.value as Channel)}
+          >
+            {CHANNELS.map((ch) => (
+              <option key={ch} value={ch}>
+                {CHANNEL_META[ch].label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      {channel === 'email' && (
+        <div className="field">
+          <label htmlFor="conversation-subject">Subject</label>
+          <input
+            id="conversation-subject"
+            className="input"
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            placeholder="What is this about?"
+          />
+        </div>
+      )}
+      <div className="field">
+        <label htmlFor="conversation-body">First message</label>
+        <textarea
+          id="conversation-body"
+          className="input"
+          rows={4}
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          placeholder="Write the opening message…"
+        />
+      </div>
+      {existing && (
+        <div className="callout">
+          This contact already has {channel === 'sms' ? 'an SMS' : `a ${CHANNEL_META[channel].label}`} thread
+          — the message will be added to it instead of starting a new one.
+        </div>
+      )}
+    </Modal>
   );
 }

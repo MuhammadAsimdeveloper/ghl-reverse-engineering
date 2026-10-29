@@ -6,7 +6,7 @@ import { currency, num, pct } from '../lib/format';
 import { uid, useStore } from '../lib/store';
 import type { PaymentLink } from '../lib/types';
 
-const urlFor = (slug: string) => `https://go.ghl-lite.test/l/${slug}`;
+const urlFor = (slug: string) => `https://go.operza.test/l/${slug}`;
 
 function slugify(value: string): string {
   return value
@@ -218,7 +218,7 @@ function NewLink({ onClose }: { onClose: () => void }) {
           }}
         />
         <div className="cell-sub" style={{ marginTop: 4 }}>
-          {slug ? urlFor(slug) : 'go.ghl-lite.test/l/…'}
+          {slug ? urlFor(slug) : 'go.operza.test/l/…'}
         </div>
       </div>
       <div className="field" style={{ marginTop: 12 }}>

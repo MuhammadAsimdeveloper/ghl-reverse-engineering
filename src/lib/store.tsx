@@ -13,6 +13,7 @@ import type {
   AuditEntry,
   CalendarDef,
   Campaign,
+  Channel,
   Contact,
   ContractDoc,
   Coupon,
@@ -52,7 +53,7 @@ import type {
   WorkflowRun,
 } from './types';
 
-const STORAGE_KEY = 'ghl-lite.workspace.v12';
+const STORAGE_KEY = 'operza.workspace.v13';
 
 export function uid(prefix = 'id'): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
@@ -70,6 +71,14 @@ export type Action =
   | { type: 'opportunity/move'; id: string; stageId: string }
   | { type: 'opportunity/delete'; id: string }
   | { type: 'conversation/send'; id: string; body: string; subject?: string }
+  | {
+      type: 'conversation/start';
+      id: string;
+      contactId: string;
+      channel: Channel;
+      body: string;
+      subject?: string;
+    }
   | { type: 'conversation/read'; id: string }
   | { type: 'conversation/star'; id: string }
   | { type: 'appointment/add'; appointment: Appointment }
@@ -124,7 +133,7 @@ export type Action =
   | { type: 'reviewRequest/delete'; id: string }
   | { type: 'campaign/add'; campaign: Campaign }
   | { type: 'form/add'; form: FormDef }
-  | { type: 'form/update'; id: string; patch: Partial<Pick<FormDef, 'name' | 'kind'>> }
+  | { type: 'form/update'; id: string; patch: Partial<Pick<FormDef, 'name' | 'kind' | 'completion'>> }
   | { type: 'form/toggle'; id: string }
   | { type: 'form/field/add'; formId: string; field: FormField }
   | { type: 'form/field/update'; formId: string; id: string; patch: Partial<FormField> }
@@ -316,6 +325,41 @@ function applyAction(state: WorkspaceState, action: Action): WorkspaceState {
             : c,
         ),
       };
+
+    case 'conversation/start': {
+      const message = {
+        id: uid('msg'),
+        direction: 'out' as const,
+        subject: action.subject,
+        body: action.body,
+        at: new Date().toISOString(),
+      };
+      const existing = state.conversations.find(
+        (c) => c.contactId === action.contactId && c.channel === action.channel,
+      );
+      if (existing) {
+        return {
+          ...state,
+          conversations: state.conversations.map((c) =>
+            c.id === existing.id ? { ...c, unread: 0, messages: [...c.messages, message] } : c,
+          ),
+        };
+      }
+      return {
+        ...state,
+        conversations: [
+          {
+            id: action.id,
+            contactId: action.contactId,
+            channel: action.channel,
+            unread: 0,
+            starred: false,
+            messages: [message],
+          },
+          ...state.conversations,
+        ],
+      };
+    }
 
     case 'conversation/read':
       return {
@@ -1648,6 +1692,7 @@ export const CHANNEL_META = {
   email: { label: 'Email', icon: 'mail' },
   facebook: { label: 'Facebook', icon: 'facebook' },
   instagram: { label: 'Instagram', icon: 'instagram' },
+  whatsapp: { label: 'WhatsApp', icon: 'whatsapp' },
   webchat: { label: 'Web chat', icon: 'globe' },
 } as const;
 

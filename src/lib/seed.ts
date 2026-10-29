@@ -25,8 +25,9 @@ function field(
   required = false,
   options: string[] = [],
   showIf?: FieldCondition,
+  points?: Record<string, number>,
 ): FormField {
-  return { id, label, type, required, options, ...(showIf ? { showIf } : {}) };
+  return { id, label, type, required, options, ...(showIf ? { showIf } : {}), ...(points ? { points } : {}) };
 }
 
 export const seed: WorkspaceState = {
@@ -325,6 +326,17 @@ export const seed: WorkspaceState = {
         { id: 'm15', direction: 'in', body: 'That would be amazing, thank you!', at: minutesAgo(660) },
       ],
     },
+    {
+      id: 'cv7',
+      contactId: 'c3',
+      channel: 'whatsapp',
+      unread: 1,
+      starred: false,
+      messages: [
+        { id: 'm16', direction: 'out', body: 'Hi Lucia — here is the onboarding checklist we talked through.', at: minutesAgo(520) },
+        { id: 'm17', direction: 'in', body: 'Got it, thank you! One question about the ad account handover.', at: minutesAgo(48) },
+      ],
+    },
   ],
 
   calendars: [
@@ -508,24 +520,34 @@ export const seed: WorkspaceState = {
     {
       id: 'sv1', name: 'Post-Demo NPS', kind: 'survey', published: true, submissions: 96,
       fields: [
-        field('ff17', 'How likely are you to recommend us?', 'select', true, ['1', '2', '3', '4', '5']),
+        field('ff17', 'How likely are you to recommend us?', 'select', true, ['1', '2', '3', '4', '5'], undefined, {
+          '1': 1, '2': 2, '3': 3, '4': 4, '5': 5,
+        }),
         field('ff18', 'What went well?', 'textarea', false, [], { fieldId: 'ff17', equals: '5' }),
         field('ff28', 'What could we improve?', 'textarea', false, [], { fieldId: 'ff17', equals: '3' }),
         field('ff19', 'I agree to be contacted about my feedback', 'consent'),
       ],
+      completion: { showScore: true },
     },
     {
       id: 'sv2', name: 'Client Satisfaction Q3', kind: 'survey', published: true, submissions: 41,
       fields: [
         field('ff20', 'Full name', 'text'),
         field('ff21', 'Email', 'email'),
-        field('ff22', 'Team rating', 'select', true, ['1', '2', '3', '4', '5']),
-        field('ff23', 'Communication rating', 'select', true, ['1', '2', '3', '4', '5']),
-        field('ff24', 'Value rating', 'select', true, ['1', '2', '3', '4', '5']),
+        field('ff22', 'Team rating', 'select', true, ['1', '2', '3', '4', '5'], undefined, {
+          '1': 1, '2': 2, '3': 3, '4': 4, '5': 5,
+        }),
+        field('ff23', 'Communication rating', 'select', true, ['1', '2', '3', '4', '5'], undefined, {
+          '1': 1, '2': 2, '3': 3, '4': 4, '5': 5,
+        }),
+        field('ff24', 'Value rating', 'select', true, ['1', '2', '3', '4', '5'], undefined, {
+          '1': 1, '2': 2, '3': 3, '4': 4, '5': 5,
+        }),
         field('ff25', 'What should we improve?', 'textarea'),
         field('ff26', 'I would refer another agency', 'consent'),
         field('ff27', 'Anything else?', 'textarea'),
       ],
+      completion: { showScore: true, passingScore: 12, redirectUrl: 'https://operza.test/surveys/thanks' },
     },
   ],
 
@@ -1312,7 +1334,7 @@ export const seed: WorkspaceState = {
   customValues: [
     { id: 'cv1', name: 'Business name', value: 'Asim Growth Agency' },
     { id: 'cv2', name: 'Support email', value: 'hello@asimgrowth.test' },
-    { id: 'cv3', name: 'Booking link', value: 'https://book.ghl-lite.test/asim' },
+    { id: 'cv3', name: 'Booking link', value: 'https://book.operza.test/asim' },
     { id: 'cv4', name: 'Office phone', value: '+1 (415) 555-0100' },
     { id: 'cv5', name: 'Email signature', value: 'Asim R. — Asim Growth Agency' },
     { id: 'cv6', name: 'Trial length', value: '14 days' },

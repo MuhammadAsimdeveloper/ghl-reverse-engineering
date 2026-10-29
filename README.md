@@ -1,7 +1,7 @@
-# GHL Lite — a CRM workspace you can study and extend
+# Operza — a CRM workspace you can study and extend
 
 An **original, from-scratch** implementation of an all-in-one agency CRM, built to mirror the
-module layout of a typical GoHighLevel-style workspace: dashboard, inbox, calendars, contacts,
+module layout of a typical agency-marketing workspace: dashboard, inbox, calendars, contacts,
 pipelines, payments, contracts, campaigns, social planner, prospecting, media, funnels,
 websites, forms, automations, memberships, reputation and reporting.
 
@@ -9,8 +9,8 @@ This project contains **no code, assets or data from any commercial product**. E
 style and data record here was written for this repository. It exists so you can read a
 realistic SaaS front-end end to end, run it locally, and change anything you like.
 
-> Not affiliated with, endorsed by, or derived from GoHighLevel or any other vendor. See
-> [Legal](#legal).
+> Operza is an independent demo. It is not affiliated with, endorsed by, or derived from any
+> commercial CRM vendor. See [Legal](#legal).
 
 ## Run it
 
@@ -19,7 +19,11 @@ npm install
 npm run dev
 ```
 
-Then open <http://localhost:5173>.
+Then open the URL Vite prints (usually <http://localhost:5173>).
+
+The app has to be served over HTTP. Double-clicking `index.html` will show a blank page because
+the source entry point and the production bundle both resolve their assets from the server root,
+and client-side routing needs an origin — use the dev server or `npm run preview`.
 
 Other scripts:
 
@@ -35,11 +39,11 @@ npm run lint       # ESLint (flat config, TypeScript + React hooks rules)
 | Module | Route | What it demonstrates |
 | --- | --- | --- |
 | Dashboard | `/` | KPI cards, revenue line chart, pipeline donut, today's agenda |
-| Conversations | `/conversations` | Two-pane inbox, channel filters, threads, channel-aware composer (email subject, SMS segment count), snippet picker |
+| Conversations | `/conversations` | Unified two-pane inbox across SMS, email, Facebook, Instagram, WhatsApp and web chat; channel filter with unread counts; new-conversation composer that reuses the contact + channel thread; email subject, SMS segment and WhatsApp character counters; snippet picker |
 | Snippets | `/snippets` | Saved replies with optional email subject, channel targeting, merge tokens and usage counts |
 | Calendars | `/calendars` | Month grid, weekly hours per calendar, round-robin assignees, overlap blocking |
-| Contacts | `/contacts` | Searchable/filterable table, tags, bulk tag/status/delete, create + edit |
-| Contact detail | `/contacts/:id` | Profile tabs, notes, tasks, deals, invoices, delete flow |
+| Contacts | `/contacts` | Searchable/filterable table, tags, bulk tag/status/delete, create + edit with contact custom fields |
+| Contact detail | `/contacts/:id` | Profile tabs, notes, tasks, deals, invoices, custom fields, delete flow |
 | Tasks | `/tasks` | Overdue/today/upcoming groups, completion toggle, priorities, assignees |
 | Opportunities | `/opportunities` | Kanban board with drag-and-drop between stages |
 | Reputation | `/reputation` | Review feed, inline replies, listing sync, review-request composer with token preview |
@@ -57,7 +61,7 @@ npm run lint       # ESLint (flat config, TypeScript + React hooks rules)
 | Media Library | `/media` | Folder/type filters, asset grid, upload + delete |
 | Funnels | `/funnels` | Editable step builder (rename, reorder, per-step opt-in rate), checkout offers with order bumps, simulated funnel checkout, duplicate, publish toggle |
 | Websites | `/websites` | Page table with reorder/edit/delete, per-page hero editor (headline, subhead, CTA, theme) and a themed site preview |
-| Forms & Surveys | `/forms` | Type tabs, live toggles, field editor with types/options/required flags, conditional logic (`show this when answer equals…`) and an interactive branching preview |
+| Forms & Surveys | `/forms` | Type tabs, live toggles, field editor with types/options/required flags, conditional logic (`show this when answer equals…`), survey answer points with a live score, pass mark and completion redirect, interactive branching preview |
 | Workflows | `/workflows` | Typed triggers (form, tag, appointment, invoice, payment, webhook, schedule), if/else branch rails, configurable webhook/tag/task/condition steps, simulated run history |
 | Store | `/store` | Product storefront, cart, coupon redemption, simulated gateways with fee math, atomic checkout |
 | Memberships | `/memberships` | Course/community offers, lesson curriculum with per-lesson drip days, unlock counts |
@@ -91,7 +95,7 @@ src/
 
 There is no backend. `StoreProvider` holds the whole workspace in a `useReducer`, and every
 action returns a new immutable state. The state is mirrored into `localStorage` under
-`ghl-lite.workspace.v12` after each change, so your edits survive a refresh. **Settings → Workspace
+`operza.workspace.v13` after each change, so your edits survive a refresh. **Settings → Workspace
 data → Reset** restores the seed. A derived audit log records every logged mutation, and
 snippets resolve `{{contact.*}}` and `{{custom_values.*}}` tokens when inserted into a reply.
 
@@ -140,6 +144,16 @@ Conditions keep their `yes`/`no` branch arrays on the step record itself (one le
 nested conditions), so reordering or deleting a branch step is a local array edit rather than a
 separate edge table that can drift.
 
+Survey scoring is derived on every keystroke: each dropdown option carries points, the preview
+sums the points of the currently visible answers, and the completion screen compares that running
+score with the optional pass mark. The redirect is validated as `http(s)` but never navigated to —
+submitting is simulated, and the completion screen only shows where the respondent would land.
+Inbox threads are keyed by contact **and** channel, so starting a conversation appends to the
+existing thread for that pair instead of duplicating it; the same contact can hold an SMS thread
+and a WhatsApp thread at once. Contact custom fields are stored as a `name → value` record on the
+contact and rendered from the field definitions in Settings, which keeps the form in sync when a
+definition is added without migrating old records.
+
 To add a field or entity:
 
 1. Declare it in `src/lib/types.ts` and add it to `WorkspaceState`.
@@ -172,8 +186,8 @@ Those are the parts you would need to design yourself before this could serve re
 
 ## Legal
 
-This is an independent educational project. It is not a copy of, and is not affiliated with,
-GoHighLevel or any commercial CRM. Names, data and copy inside the demo are fictional. If you are
+Operza is an independent educational project. It is not a copy of, and is not affiliated with,
+any commercial CRM vendor. Names, data and copy inside the demo are fictional. If you are
 studying a commercial product, review its terms of service before copying anything from it —
 reproducing proprietary source or assets is not permitted by most licences, and this repository
 deliberately avoids doing that.

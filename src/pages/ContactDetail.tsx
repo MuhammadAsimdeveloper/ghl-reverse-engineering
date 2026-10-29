@@ -463,8 +463,34 @@ function EditContact({
     owner: contact.owner,
     tags: contact.tags.join(', '),
   });
+  const { state } = useStore();
+  const [custom, setCustom] = useState<Record<string, string>>({ ...contact.customFields });
+  const contactFields = state.customFields.filter((field) => field.entity === 'contact');
 
   const set = (key: keyof typeof form, value: string) => setForm((f) => ({ ...f, [key]: value }));
+
+  const save = () => {
+    const customFields: Record<string, string> = { ...contact.customFields };
+    for (const field of contactFields) {
+      const value = (custom[field.name] ?? '').trim();
+      if (value) customFields[field.name] = value;
+      else delete customFields[field.name];
+    }
+    onSave({
+      firstName: form.firstName.trim(),
+      lastName: form.lastName.trim(),
+      email: form.email.trim(),
+      phone: form.phone.trim(),
+      company: form.company.trim(),
+      status: form.status as ContactStatus,
+      owner: form.owner,
+      tags: form.tags
+        .split(',')
+        .map((t) => t.trim().toLowerCase().replace(/\s+/g, '-'))
+        .filter(Boolean),
+      customFields,
+    });
+  };
 
   return (
     <Modal
@@ -475,24 +501,7 @@ function EditContact({
           <button className="btn" onClick={onClose}>
             Cancel
           </button>
-          <button
-            className="btn btn--primary"
-            onClick={() =>
-              onSave({
-                firstName: form.firstName.trim(),
-                lastName: form.lastName.trim(),
-                email: form.email.trim(),
-                phone: form.phone.trim(),
-                company: form.company.trim(),
-                status: form.status as ContactStatus,
-                owner: form.owner,
-                tags: form.tags
-                  .split(',')
-                  .map((t) => t.trim().toLowerCase().replace(/\s+/g, '-'))
-                  .filter(Boolean),
-              })
-            }
-          >
+          <button className="btn btn--primary" onClick={save}>
             Save changes
           </button>
         </>
@@ -542,6 +551,34 @@ function EditContact({
           <input className="input" value={form.tags} onChange={(e) => set('tags', e.target.value)} />
         </div>
       </div>
+
+      <div className="divider" style={{ margin: '16px 0 12px' }} />
+      <div className="row row--between" style={{ marginBottom: 8 }}>
+        <strong style={{ fontSize: 13 }}>Custom fields</strong>
+        <span className="cell-sub">{contactFields.length} defined</span>
+      </div>
+      {contactFields.length === 0 ? (
+        <div className="hint">
+          No contact custom fields yet — add field definitions in Settings to collect extra details here.
+        </div>
+      ) : (
+        <div className="grid grid--2">
+          {contactFields.map((field) => (
+            <div className="field" key={field.id}>
+              <label htmlFor={`contact-cf-${field.id}`}>{field.name}</label>
+              <input
+                id={`contact-cf-${field.id}`}
+                className="input"
+                type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'}
+                value={custom[field.name] ?? ''}
+                onChange={(e) =>
+                  setCustom((current) => ({ ...current, [field.name]: e.target.value }))
+                }
+              />
+            </div>
+          ))}
+        </div>
+      )}
     </Modal>
   );
 }

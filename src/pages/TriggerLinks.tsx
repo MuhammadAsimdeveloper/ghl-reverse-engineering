@@ -6,7 +6,7 @@ import { uid, useStore } from '../lib/store';
 import { num, relative } from '../lib/format';
 import type { TriggerLink } from '../lib/types';
 
-const BASE = 'https://links.ghl-lite.test/t';
+const BASE = 'https://links.operza.test/t';
 
 export default function TriggerLinks() {
   const { state, dispatch } = useStore();

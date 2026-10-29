@@ -4,7 +4,7 @@ import { Modal } from '../components/Modal';
 import { Badge, PageHeader, StatCard, StatusBadge, Switch } from '../components/ui';
 import { useStore, uid } from '../lib/store';
 import { num, pct } from '../lib/format';
-import type { FormDef, FormField, FormFieldType, FormKind } from '../lib/types';
+import type { FormCompletion, FormDef, FormField, FormFieldType, FormKind } from '../lib/types';
 
 const TABS: Array<{ value: 'all' | FormKind; label: string }> = [
   { value: 'all', label: 'All' },
@@ -307,11 +307,20 @@ function FormEditor({ form, onClose }: { form: FormDef; onClose: () => void }) {
   const [type, setType] = useState<FormFieldType>('text');
   const [required, setRequired] = useState(false);
   const [options, setOptions] = useState('');
+  const [points, setPoints] = useState<Record<string, number>>({});
   const [conditionFieldId, setConditionFieldId] = useState('');
   const [conditionValue, setConditionValue] = useState('');
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [submitted, setSubmitted] = useState(false);
+  const [showScore, setShowScore] = useState(form.completion?.showScore ?? form.kind === 'survey');
+  const [passing, setPassing] = useState(
+    form.completion?.passingScore !== undefined ? String(form.completion.passingScore) : '',
+  );
+  const [redirect, setRedirect] = useState(form.completion?.redirectUrl ?? '');
 
   const choices = parseOptions(options);
+  const redirectClean = redirect.trim();
+  const redirectValid = redirectClean === '' || /^https?:\/\/\S+$/.test(redirectClean);
   const canSaveField =
     label.trim().length > 1 &&
     (type !== 'select' || choices.length >= 2) &&
@@ -327,6 +336,27 @@ function FormEditor({ form, onClose }: { form: FormDef; onClose: () => void }) {
     (field) => !field.showIf || answers[field.showIf.fieldId] === field.showIf.equals,
   );
   const conditionalCount = form.fields.filter((field) => field.showIf).length;
+  const score = visibleFields.reduce(
+    (sum, field) => sum + (field.points?.[answers[field.id] ?? ''] ?? 0),
+    0,
+  );
+  const maxScore = visibleFields.reduce(
+    (sum, field) => sum + Math.max(0, ...Object.values(field.points ?? {})),
+    0,
+  );
+  const missingRequired = visibleFields.filter((field) => field.required && !answers[field.id]).length;
+  const passingScore = passing.trim() === '' ? undefined : Number(passing);
+  const passed = passingScore === undefined || score >= passingScore;
+
+  const saveCompletion = () => {
+    if (!redirectValid) return;
+    const completion: FormCompletion = {
+      showScore,
+      redirectUrl: redirectClean || undefined,
+      passingScore: passingScore !== undefined && Number.isFinite(passingScore) ? passingScore : undefined,
+    };
+    dispatch({ type: 'form/update', id: form.id, patch: { completion } });
+  };
 
   const resetFieldForm = () => {
     setFieldId(null);
@@ -334,6 +364,7 @@ function FormEditor({ form, onClose }: { form: FormDef; onClose: () => void }) {
     setType('text');
     setRequired(false);
     setOptions('');
+    setPoints({});
     setConditionFieldId('');
     setConditionValue('');
   };
@@ -344,17 +375,23 @@ function FormEditor({ form, onClose }: { form: FormDef; onClose: () => void }) {
     setType(field.type);
     setRequired(field.required);
     setOptions(field.options.join(', '));
+    setPoints(field.points ?? {});
     setConditionFieldId(field.showIf?.fieldId ?? '');
     setConditionValue(field.showIf?.equals ?? '');
   };
 
   const saveField = () => {
     if (!canSaveField) return;
+    const fieldPoints =
+      form.kind === 'survey' && type === 'select' && choices.length > 0
+        ? Object.fromEntries(choices.map((option) => [option, points[option] ?? 0]))
+        : undefined;
     const patch: Partial<FormField> = {
       label: label.trim(),
       type,
       required,
       options: type === 'select' ? choices : [],
+      points: fieldPoints,
       showIf:
         conditionFieldId && conditionValue
           ? { fieldId: conditionFieldId, equals: conditionValue }
@@ -366,7 +403,15 @@ function FormEditor({ form, onClose }: { form: FormDef; onClose: () => void }) {
       dispatch({
         type: 'form/field/add',
         formId: form.id,
-        field: { id: uid('ff'), label: patch.label ?? '', type, required, options: patch.options ?? [], showIf: patch.showIf },
+        field: {
+          id: uid('ff'),
+          label: patch.label ?? '',
+          type,
+          required,
+          options: patch.options ?? [],
+          points: patch.points,
+          showIf: patch.showIf,
+        },
       });
     }
     resetFieldForm();
@@ -425,6 +470,9 @@ function FormEditor({ form, onClose }: { form: FormDef; onClose: () => void }) {
                     <Badge tone="blue">{labelFor(field.type)}</Badge>
                     {field.required && <Badge tone="amber">Required</Badge>}
                     {field.showIf && <Badge tone="violet">Conditional</Badge>}
+                    {field.points && Object.values(field.points).some((value) => value > 0) && (
+                      <Badge tone="violet">Scored</Badge>
+                    )}
                     {field.type === 'select' && field.options.length > 0 && (
                       <span className="cell-sub">{field.options.join(' · ')}</span>
                     )}
@@ -515,6 +563,32 @@ function FormEditor({ form, onClose }: { form: FormDef; onClose: () => void }) {
                 {choices.length < 2 && <div className="hint">Add at least two choices to save this dropdown.</div>}
               </div>
             )}
+            {form.kind === 'survey' && type === 'select' && choices.length > 0 && (
+              <div className="field" style={{ marginTop: 10 }}>
+                <label>Answer points</label>
+                <div className="grid grid--2" style={{ gap: 8 }}>
+                  {choices.map((option) => (
+                    <label key={option} className="row" style={{ gap: 8 }}>
+                      <span className="cell-sub" style={{ flex: 1, minWidth: 0 }}>
+                        {option}
+                      </span>
+                      <input
+                        className="input"
+                        type="number"
+                        min={0}
+                        aria-label={`Points for ${option}`}
+                        style={{ width: 72 }}
+                        value={points[option] ?? 0}
+                        onChange={(e) =>
+                          setPoints((current) => ({ ...current, [option]: Number(e.target.value) }))
+                        }
+                      />
+                    </label>
+                  ))}
+                </div>
+                <div className="hint">Points feed the live score shown in the preview.</div>
+              </div>
+            )}
             <div className="grid grid--2" style={{ marginTop: 10 }}>
               <div className="field">
                 <label htmlFor="field-condition">Show only when</label>
@@ -564,6 +638,55 @@ function FormEditor({ form, onClose }: { form: FormDef; onClose: () => void }) {
               </button>
             </div>
           </div>
+
+          <div className="builder-box" style={{ marginTop: 12 }}>
+            <div className="row row--between">
+              <strong style={{ fontSize: 13 }}>Completion &amp; scoring</strong>
+              <Switch on={showScore} label="Show score" onChange={() => setShowScore((v) => !v)} />
+            </div>
+            <div className="grid grid--2" style={{ marginTop: 10 }}>
+              <div className="field">
+                <label htmlFor="form-passing">Passing score</label>
+                <input
+                  id="form-passing"
+                  className="input"
+                  type="number"
+                  min={0}
+                  placeholder="Optional"
+                  value={passing}
+                  onChange={(e) => setPassing(e.target.value)}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="form-redirect">Redirect after submit</label>
+                <input
+                  id="form-redirect"
+                  className="input"
+                  placeholder="https://example.com/thanks"
+                  value={redirect}
+                  onChange={(e) => setRedirect(e.target.value)}
+                />
+              </div>
+            </div>
+            {!redirectValid && (
+              <div className="callout callout--danger">Redirect must start with http:// or https://.</div>
+            )}
+            <div className="row row--between" style={{ marginTop: 10 }}>
+              <span className="hint" style={{ minWidth: 0 }}>
+                {form.completion?.redirectUrl
+                  ? `Currently redirects to ${form.completion.redirectUrl}`
+                  : 'No redirect configured.'}
+              </span>
+              <button
+                className="btn btn--sm"
+                type="button"
+                disabled={!redirectValid || (passingScore !== undefined && !Number.isFinite(passingScore))}
+                onClick={saveCompletion}
+              >
+                Save completion
+              </button>
+            </div>
+          </div>
         </div>
 
         <div className="builder-box">
@@ -574,7 +697,46 @@ function FormEditor({ form, onClose }: { form: FormDef; onClose: () => void }) {
             </Badge>
           </div>
           <div className="form-preview">
-            <div className="form-preview__title">{name.trim() || form.name}</div>
+            <div className="row row--between" style={{ marginBottom: 12 }}>
+              <div className="form-preview__title" style={{ marginBottom: 0 }}>
+                {name.trim() || form.name}
+              </div>
+              {showScore && (
+                <Badge tone="violet">
+                  Score {score}/{maxScore}
+                </Badge>
+              )}
+            </div>
+            {submitted ? (
+              <div className="form-preview__done">
+                <span className="form-preview__done-icon">
+                  <Icon name="check" size={20} />
+                </span>
+                <strong style={{ fontSize: 13 }}>Response recorded</strong>
+                {showScore && (
+                  <div className="hint">
+                    Score {score} of {maxScore}
+                    {passingScore === undefined
+                      ? ' · no pass mark set'
+                      : passed
+                        ? ' · passed'
+                        : ' · below the pass mark'}
+                  </div>
+                )}
+                {redirectClean && <div className="hint">Simulated redirect to {redirectClean}</div>}
+                <button
+                  className="btn btn--sm"
+                  type="button"
+                  onClick={() => {
+                    setSubmitted(false);
+                    setAnswers({});
+                  }}
+                >
+                  Submit another response
+                </button>
+              </div>
+            ) : (
+              <>
             {form.fields.length === 0 && <div className="hint">Add a field to see it here.</div>}
             {visibleFields.map((field) => (
               <div className="form-preview__field" key={field.id}>
@@ -632,9 +794,21 @@ function FormEditor({ form, onClose }: { form: FormDef; onClose: () => void }) {
                 )}
               </div>
             ))}
-            <button className="btn btn--primary btn--sm" type="button" disabled>
+            <button
+              className="btn btn--primary btn--sm"
+              type="button"
+              disabled={visibleFields.length === 0 || missingRequired > 0}
+              onClick={() => setSubmitted(true)}
+            >
               Submit
             </button>
+            {missingRequired > 0 && (
+              <div className="hint" style={{ marginTop: 6 }}>
+                {missingRequired} required field{missingRequired === 1 ? '' : 's'} left.
+              </div>
+            )}
+              </>
+            )}
           </div>
           {conditionalCount > 0 && (
             <div className="hint" style={{ marginTop: 8 }}>
