@@ -27,6 +27,7 @@ Other scripts:
 npm run build      # type-check + production bundle
 npm run preview    # serve the production build
 npm run typecheck  # types only
+npm run lint       # ESLint (flat config, TypeScript + React hooks rules)
 ```
 
 ## What's inside

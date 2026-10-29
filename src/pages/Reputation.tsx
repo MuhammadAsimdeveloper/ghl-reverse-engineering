@@ -47,7 +47,7 @@ export default function Reputation() {
   const queuedRequests = reviewRequests.length - sentRequests;
 
   const copyReviewLink = async () => {
-    let copied = false;
+    let copied: boolean;
     try {
       await navigator.clipboard.writeText(REVIEW_LINK);
       copied = true;

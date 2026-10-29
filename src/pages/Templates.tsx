@@ -19,7 +19,7 @@ export default function Templates() {
   );
   const visible = templates.filter((t) => category === 'All' || t.category === category);
 
-  async function useTemplate(t: EmailTemplate) {
+  async function applyTemplate(t: EmailTemplate) {
     try {
       await navigator.clipboard.writeText(t.subject);
     } catch {
@@ -81,7 +81,7 @@ export default function Templates() {
                 <div className="template__subject">{t.subject}</div>
                 <div className="cell-sub">Updated {relative(t.updatedAt)}</div>
                 <div className="row" style={{ gap: 8, marginTop: 2 }}>
-                  <button type="button" className="btn btn--sm btn--primary" onClick={() => useTemplate(t)}>
+                  <button type="button" className="btn btn--sm btn--primary" onClick={() => applyTemplate(t)}>
                     <Icon name={copied === t.id ? 'check' : 'copy'} size={13} />
                     {copied === t.id ? 'Copied' : 'Copy subject'}
                   </button>
@@ -108,7 +108,7 @@ export default function Templates() {
                 className="btn btn--primary"
                 type="button"
                 onClick={() => {
-                  useTemplate(preview);
+                  applyTemplate(preview);
                   setPreview(null);
                 }}
               >
