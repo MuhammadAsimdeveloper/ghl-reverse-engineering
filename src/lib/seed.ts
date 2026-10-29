@@ -531,17 +531,29 @@ export const seed: WorkspaceState = {
 
   workflows: [
     {
-      id: 'wf1', name: 'New Lead Nurture', status: 'published', trigger: 'Form submitted', enrolled: 482, completed: 311,
+      id: 'wf1', name: 'New Lead Nurture', status: 'published', trigger: { kind: 'form', detail: 'Contact Us' },
+      enrolled: 482, completed: 311,
       actions: [
         { id: 'wa1', kind: 'email', label: 'Send welcome email' },
         { id: 'wa2', kind: 'wait', label: 'Wait 2 days', delayHours: 48 },
         { id: 'wa3', kind: 'sms', label: 'Send SMS check-in' },
-        { id: 'wa4', kind: 'condition', label: 'If replied → stop' },
-        { id: 'wa5', kind: 'tag', label: 'Tag "nurtured"' },
+        {
+          id: 'wa4', kind: 'condition', label: 'Already a customer?',
+          config: { rule: { field: 'status', operator: 'is', value: 'customer' } },
+          yes: [
+            {
+              id: 'wa17', kind: 'task', label: 'Schedule an onboarding call',
+              config: { title: 'Schedule an onboarding call', dueInDays: 2 },
+            },
+          ],
+          no: [{ id: 'wa18', kind: 'sms', label: 'Nudge with a booking link' }],
+        },
+        { id: 'wa5', kind: 'tag', label: 'Apply "nurtured" tag', config: { tag: 'nurtured' } },
       ],
     },
     {
-      id: 'wf2', name: 'Appointment Reminder', status: 'published', trigger: 'Appointment booked', enrolled: 214, completed: 198,
+      id: 'wf2', name: 'Appointment Reminder', status: 'published', trigger: { kind: 'appointment' },
+      enrolled: 214, completed: 198,
       actions: [
         { id: 'wa6', kind: 'sms', label: 'Confirm booking via SMS' },
         { id: 'wa7', kind: 'wait', label: 'Wait 24 hours', delayHours: 24 },
@@ -551,19 +563,83 @@ export const seed: WorkspaceState = {
       ],
     },
     {
-      id: 'wf3', name: 'Invoice Overdue Chaser', status: 'published', trigger: 'Invoice overdue', enrolled: 37, completed: 29,
+      id: 'wf3', name: 'Invoice Overdue Chaser', status: 'published', trigger: { kind: 'invoice' },
+      enrolled: 37, completed: 29,
       actions: [
         { id: 'wa11', kind: 'email', label: 'Friendly reminder' },
         { id: 'wa12', kind: 'wait', label: 'Wait 3 days', delayHours: 72 },
-        { id: 'wa13', kind: 'task', label: 'Create call task' },
+        {
+          id: 'wa13', kind: 'task', label: 'Create call task',
+          config: { title: 'Call about the overdue invoice', dueInDays: 1 },
+        },
       ],
     },
     {
-      id: 'wf4', name: 'Review Request', status: 'draft', trigger: 'Payment received', enrolled: 0, completed: 0,
+      id: 'wf4', name: 'Review Request', status: 'draft', trigger: { kind: 'payment' },
+      enrolled: 0, completed: 0,
       actions: [
         { id: 'wa14', kind: 'wait', label: 'Wait 7 days', delayHours: 168 },
         { id: 'wa15', kind: 'email', label: 'Ask for a review' },
-        { id: 'wa16', kind: 'webhook', label: 'POST to review monitor' },
+        { id: 'wa16', kind: 'webhook', label: 'POST to review monitor', config: { method: 'POST' } },
+      ],
+    },
+    {
+      id: 'wf5', name: 'Daily Pipeline Digest', status: 'draft',
+      trigger: { kind: 'schedule', every: 1, unit: 'days' },
+      enrolled: 0, completed: 0,
+      actions: [
+        { id: 'wa19', kind: 'email', label: 'Email the pipeline summary' },
+        {
+          id: 'wa20', kind: 'webhook', label: 'Post digest to Slack',
+          config: { method: 'POST', url: 'https://hooks.agency.test/slack' },
+        },
+      ],
+    },
+  ],
+
+  workflowRuns: [
+    {
+      id: 'run1', workflowId: 'wf1', contactId: 'c1', at: minutesAgo(35),
+      status: 'success', durationMs: 1960,
+      steps: [
+        { label: 'Send welcome email', kind: 'email', status: 'done', detail: 'Email queued · simulated' },
+        { label: 'Wait 2 days', kind: 'wait', status: 'done', detail: '2 days · simulated' },
+        { label: 'Send SMS check-in', kind: 'sms', status: 'done', detail: 'SMS queued · simulated' },
+        { label: 'Already a customer?', kind: 'condition', status: 'done', detail: 'No branch' },
+        { label: 'Nudge with a booking link', kind: 'sms', status: 'done', detail: 'SMS queued · simulated' },
+        { label: 'Apply "nurtured" tag', kind: 'tag', status: 'done', detail: 'Tag "nurtured" applied' },
+      ],
+    },
+    {
+      id: 'run2', workflowId: 'wf1', contactId: 'c2', at: minutesAgo(190),
+      status: 'success', durationMs: 1960,
+      steps: [
+        { label: 'Send welcome email', kind: 'email', status: 'done', detail: 'Email queued · simulated' },
+        { label: 'Wait 2 days', kind: 'wait', status: 'done', detail: '2 days · simulated' },
+        { label: 'Send SMS check-in', kind: 'sms', status: 'done', detail: 'SMS queued · simulated' },
+        { label: 'Already a customer?', kind: 'condition', status: 'done', detail: 'Yes branch' },
+        { label: 'Schedule an onboarding call', kind: 'task', status: 'done', detail: 'Task created · due in 2 days' },
+        { label: 'Apply "nurtured" tag', kind: 'tag', status: 'done', detail: 'Tag "nurtured" applied' },
+      ],
+    },
+    {
+      id: 'run3', workflowId: 'wf4', contactId: 'c8', at: minutesAgo(900),
+      status: 'failed', durationMs: 920,
+      steps: [
+        { label: 'Wait 7 days', kind: 'wait', status: 'done', detail: '7 days · simulated' },
+        { label: 'Ask for a review', kind: 'email', status: 'done', detail: 'Email queued · simulated' },
+        { label: 'POST to review monitor', kind: 'webhook', status: 'failed', detail: 'Invalid or missing webhook URL' },
+      ],
+    },
+    {
+      id: 'run4', workflowId: 'wf2', contactId: 'c4', at: minutesAgo(1440),
+      status: 'success', durationMs: 1700,
+      steps: [
+        { label: 'Confirm booking via SMS', kind: 'sms', status: 'done', detail: 'SMS queued · simulated' },
+        { label: 'Wait 24 hours', kind: 'wait', status: 'done', detail: '1 day · simulated' },
+        { label: 'Send reminder email', kind: 'email', status: 'done', detail: 'Email queued · simulated' },
+        { label: 'Wait 1 hour', kind: 'wait', status: 'done', detail: '1 hour · simulated' },
+        { label: 'Send 1-hour nudge', kind: 'sms', status: 'done', detail: 'SMS queued · simulated' },
       ],
     },
   ],

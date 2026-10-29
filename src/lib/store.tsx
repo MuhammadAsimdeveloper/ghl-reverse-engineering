@@ -49,9 +49,10 @@ import type {
   WorkspaceState,
   Workflow,
   WorkflowAction,
+  WorkflowRun,
 } from './types';
 
-const STORAGE_KEY = 'ghl-lite.workspace.v11';
+const STORAGE_KEY = 'ghl-lite.workspace.v12';
 
 export function uid(prefix = 'id'): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
@@ -132,10 +133,11 @@ export type Action =
   | { type: 'workflow/toggle'; id: string }
   | { type: 'workflow/add'; workflow: Workflow }
   | { type: 'workflow/update'; id: string; patch: Partial<Pick<Workflow, 'name' | 'trigger'>> }
-  | { type: 'workflow/step/add'; workflowId: string; step: WorkflowAction }
+  | { type: 'workflow/step/add'; workflowId: string; step: WorkflowAction; parentId?: string; branch?: 'yes' | 'no' }
   | { type: 'workflow/step/update'; workflowId: string; id: string; patch: Partial<WorkflowAction> }
   | { type: 'workflow/step/delete'; workflowId: string; id: string }
   | { type: 'workflow/step/move'; workflowId: string; id: string; direction: 'up' | 'down' }
+  | { type: 'workflow/run/add'; run: WorkflowRun }
   | { type: 'integration/toggle'; id: string }
   | { type: 'review/reply'; id: string; reply: string }
   | { type: 'review/status'; id: string; status: 'new' | 'flagged' }
@@ -190,7 +192,47 @@ function pruneContacts(state: WorkspaceState, ids: Set<string>): WorkspaceState 
     orders: state.orders.filter((o) => keep(o.contactId)),
     subscriptions: state.subscriptions.filter((s) => keep(s.contactId)),
     tasks: state.tasks.filter((t) => !t.contactId || keep(t.contactId)),
+    workflowRuns: state.workflowRuns.filter((r) => keep(r.contactId)),
   };
+}
+
+interface StepLocation {
+  list: WorkflowAction[];
+  index: number;
+  /** Rebuilds the workflow with this step list replaced. */
+  replace: (next: WorkflowAction[]) => Workflow;
+}
+
+/** Finds a step in the top-level flow or in a condition's one-level branch. */
+function locateStep(flow: Workflow, id: string): StepLocation | null {
+  const topIndex = flow.actions.findIndex((step) => step.id === id);
+  if (topIndex >= 0) {
+    return { list: flow.actions, index: topIndex, replace: (next) => ({ ...flow, actions: next }) };
+  }
+  for (const parent of flow.actions) {
+    if (parent.kind !== 'condition') continue;
+    for (const branch of ['yes', 'no'] as const) {
+      const list = parent[branch];
+      if (!list) continue;
+      const index = list.findIndex((step) => step.id === id);
+      if (index < 0) continue;
+      return {
+        list,
+        index,
+        replace: (next) => ({
+          ...flow,
+          actions: flow.actions.map((step) =>
+            step.id === parent.id
+              ? branch === 'yes'
+                ? { ...step, yes: next }
+                : { ...step, no: next }
+              : step,
+          ),
+        }),
+      };
+    }
+  }
+  return null;
 }
 
 function applyAction(state: WorkspaceState, action: Action): WorkspaceState {
@@ -685,49 +727,71 @@ function applyAction(state: WorkspaceState, action: Action): WorkspaceState {
     case 'workflow/step/add':
       return {
         ...state,
-        workflows: state.workflows.map((w) =>
-          w.id === action.workflowId ? { ...w, actions: [...w.actions, action.step] } : w,
-        ),
+        workflows: state.workflows.map((w) => {
+          if (w.id !== action.workflowId) return w;
+          if (!action.parentId || !action.branch) {
+            return { ...w, actions: [...w.actions, action.step] };
+          }
+          return {
+            ...w,
+            actions: w.actions.map((step) => {
+              if (step.id !== action.parentId) return step;
+              return action.branch === 'yes'
+                ? { ...step, yes: [...(step.yes ?? []), action.step] }
+                : { ...step, no: [...(step.no ?? []), action.step] };
+            }),
+          };
+        }),
       };
 
-    case 'workflow/step/update':
+    case 'workflow/step/update': {
+      // Branches only exist under condition steps; dropping the condition kind drops them too.
+      const patch =
+        action.patch.kind && action.patch.kind !== 'condition'
+          ? { ...action.patch, yes: undefined, no: undefined }
+          : action.patch;
       return {
         ...state,
-        workflows: state.workflows.map((w) =>
-          w.id === action.workflowId
-            ? {
-                ...w,
-                actions: w.actions.map((step) =>
-                  step.id === action.id ? { ...step, ...action.patch } : step,
-                ),
-              }
-            : w,
-        ),
+        workflows: state.workflows.map((w) => {
+          if (w.id !== action.workflowId) return w;
+          const loc = locateStep(w, action.id);
+          if (!loc) return w;
+          return loc.replace(
+            loc.list.map((step, i) => (i === loc.index ? { ...step, ...patch } : step)),
+          );
+        }),
       };
+    }
 
     case 'workflow/step/delete':
       return {
         ...state,
-        workflows: state.workflows.map((w) =>
-          w.id === action.workflowId
-            ? { ...w, actions: w.actions.filter((step) => step.id !== action.id) }
-            : w,
-        ),
+        workflows: state.workflows.map((w) => {
+          if (w.id !== action.workflowId) return w;
+          const loc = locateStep(w, action.id);
+          if (!loc) return w;
+          return loc.replace(loc.list.filter((_, i) => i !== loc.index));
+        }),
       };
 
     case 'workflow/step/move': {
-      const flow = state.workflows.find((w) => w.id === action.workflowId);
-      if (!flow) return state;
-      const index = flow.actions.findIndex((step) => step.id === action.id);
-      const target = action.direction === 'up' ? index - 1 : index + 1;
-      if (index < 0 || target < 0 || target >= flow.actions.length) return state;
-      const actions = [...flow.actions];
-      [actions[index], actions[target]] = [actions[target], actions[index]];
       return {
         ...state,
-        workflows: state.workflows.map((w) => (w.id === flow.id ? { ...w, actions } : w)),
+        workflows: state.workflows.map((w) => {
+          if (w.id !== action.workflowId) return w;
+          const loc = locateStep(w, action.id);
+          if (!loc) return w;
+          const target = action.direction === 'up' ? loc.index - 1 : loc.index + 1;
+          if (target < 0 || target >= loc.list.length) return w;
+          const next = [...loc.list];
+          [next[loc.index], next[target]] = [next[target], next[loc.index]];
+          return loc.replace(next);
+        }),
       };
     }
+
+    case 'workflow/run/add':
+      return { ...state, workflowRuns: [action.run, ...state.workflowRuns].slice(0, 40) };
 
     case 'integration/toggle':
       return {
@@ -1203,26 +1267,38 @@ function auditMeta(
         entity: 'Workflow',
         detail: `${byId(state.workflows, action.workflowId)?.name ?? 'Workflow'} · ${action.step.label}`,
       };
-    case 'workflow/step/update':
+    case 'workflow/step/update': {
+      const flow = byId(state.workflows, action.workflowId);
+      const loc = flow ? locateStep(flow, action.id) : null;
       return {
         action: 'Workflow step updated',
         entity: 'Workflow',
-        detail:
-          action.patch.label ??
-          byId(byId(state.workflows, action.workflowId)?.actions ?? [], action.id)?.label,
+        detail: action.patch.label ?? (loc ? loc.list[loc.index].label : undefined),
       };
-    case 'workflow/step/delete':
+    }
+    case 'workflow/step/delete': {
+      const flow = byId(state.workflows, action.workflowId);
+      const loc = flow ? locateStep(flow, action.id) : null;
       return {
         action: 'Workflow step removed',
         entity: 'Workflow',
-        detail: byId(byId(state.workflows, action.workflowId)?.actions ?? [], action.id)?.label,
+        detail: loc ? loc.list[loc.index].label : undefined,
       };
+    }
     case 'workflow/step/move':
       return {
         action: 'Workflow step reordered',
         entity: 'Workflow',
         detail: byId(state.workflows, action.workflowId)?.name,
       };
+    case 'workflow/run/add': {
+      const flow = byId(state.workflows, action.run.workflowId);
+      return {
+        action: `Workflow run ${action.run.status}`,
+        entity: 'Workflow',
+        detail: `${flow?.name ?? 'Workflow'} · ${contactName(action.run.contactId)} · ${action.run.status}`,
+      };
+    }
     case 'workflow/toggle': {
       const flow = byId(state.workflows, action.id);
       return {

@@ -58,7 +58,7 @@ npm run lint       # ESLint (flat config, TypeScript + React hooks rules)
 | Funnels | `/funnels` | Editable step builder (rename, reorder, per-step opt-in rate), checkout offers with order bumps, simulated funnel checkout, duplicate, publish toggle |
 | Websites | `/websites` | Page table with reorder/edit/delete, per-page hero editor (headline, subhead, CTA, theme) and a themed site preview |
 | Forms & Surveys | `/forms` | Type tabs, live toggles, field editor with types/options/required flags, conditional logic (`show this when answer equals…`) and an interactive branching preview |
-| Workflows | `/workflows` | Editable automation builder — rename, retrigger, reorder/add/edit/remove steps with wait delays |
+| Workflows | `/workflows` | Typed triggers (form, tag, appointment, invoice, payment, webhook, schedule), if/else branch rails, configurable webhook/tag/task/condition steps, simulated run history |
 | Store | `/store` | Product storefront, cart, coupon redemption, simulated gateways with fee math, atomic checkout |
 | Memberships | `/memberships` | Course/community offers, lesson curriculum with per-lesson drip days, unlock counts |
 | Reporting | `/reporting` | Custom widget dashboard, multi-series charts, saveable metric reports with prior-period deltas, team table |
@@ -91,7 +91,7 @@ src/
 
 There is no backend. `StoreProvider` holds the whole workspace in a `useReducer`, and every
 action returns a new immutable state. The state is mirrored into `localStorage` under
-`ghl-lite.workspace.v11` after each change, so your edits survive a refresh. **Settings → Workspace
+`ghl-lite.workspace.v12` after each change, so your edits survive a refresh. **Settings → Workspace
 data → Reset** restores the seed. A derived audit log records every logged mutation, and
 snippets resolve `{{contact.*}}` and `{{custom_values.*}}` tokens when inserted into a reply.
 
@@ -130,6 +130,15 @@ Funnel order bumps work the same way: the funnel stores the main-offer product a
 total from the accepted checkboxes on every toggle. Completing the preview reuses the atomic
 `store/checkout` action, so the order records the accepted bump titles and the paid invoice,
 coupon redemption and audit entry are written in one dispatch.
+
+Workflow runs are simulated rather than stored as contact state. `Run now` walks the saved step
+tree against the chosen contact, evaluates each condition rule (`tag`, `status`, `company`,
+`email`) live, treats waits as completed, and appends a `WorkflowRun` with per-step results plus a
+single audit entry. A webhook step with a missing or non-`http(s)` URL fails the run and marks the
+remaining steps skipped, so the failure path stays inspectable without any network access.
+Conditions keep their `yes`/`no` branch arrays on the step record itself (one level deep, no
+nested conditions), so reordering or deleting a branch step is a local array edit rather than a
+separate edge table that can drift.
 
 To add a field or entity:
 

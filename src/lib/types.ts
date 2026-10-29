@@ -309,22 +309,92 @@ export interface FormDef {
   fields: FormField[];
 }
 
+export type WorkflowTriggerKind =
+  | 'form'
+  | 'tag'
+  | 'appointment'
+  | 'invoice'
+  | 'payment'
+  | 'webhook'
+  | 'schedule';
+
+export interface WorkflowTrigger {
+  kind: WorkflowTriggerKind;
+  /**
+   * Form name, tag name or inbound webhook path, depending on the kind.
+   * Appointment, invoice and payment triggers fire on the matching event.
+   */
+  detail?: string;
+  /** Repeat interval for schedule triggers. */
+  every?: number;
+  unit?: 'minutes' | 'hours' | 'days';
+}
+
+export type ConditionField = 'tag' | 'status' | 'company' | 'email';
+export type ConditionOperator = 'is' | 'is_not' | 'contains';
+
+export interface ConditionRule {
+  field: ConditionField;
+  operator: ConditionOperator;
+  value: string;
+}
+
+export interface WorkflowStepConfig {
+  /** Webhook request method. */
+  method?: 'POST' | 'PUT' | 'GET';
+  /** Webhook target; runs fail while this is empty or not http(s). */
+  url?: string;
+  /** Tag applied by tag steps. */
+  tag?: string;
+  /** Task title for task steps. */
+  title?: string;
+  /** Task due offset in days. */
+  dueInDays?: number;
+  /** Rule evaluated by condition steps. */
+  rule?: ConditionRule;
+}
+
 export interface WorkflowAction {
   id: ID;
   kind: 'sms' | 'email' | 'wait' | 'tag' | 'task' | 'webhook' | 'condition';
   label: string;
   /** Delay for wait steps, in hours. Ignored by every other kind. */
   delayHours?: number;
+  config?: WorkflowStepConfig;
+  /** Steps that run when a condition passes. Condition steps only. */
+  yes?: WorkflowAction[];
+  /** Steps that run when a condition fails. Condition steps only. */
+  no?: WorkflowAction[];
 }
 
 export interface Workflow {
   id: ID;
   name: string;
   status: 'published' | 'draft';
-  trigger: string;
+  trigger: WorkflowTrigger;
   actions: WorkflowAction[];
   enrolled: number;
   completed: number;
+}
+
+export type WorkflowRunStatus = 'success' | 'failed';
+export type WorkflowRunStepStatus = 'done' | 'failed' | 'skipped';
+
+export interface WorkflowRunStep {
+  label: string;
+  kind: WorkflowAction['kind'];
+  status: WorkflowRunStepStatus;
+  detail?: string;
+}
+
+export interface WorkflowRun {
+  id: ID;
+  workflowId: ID;
+  contactId: ID;
+  at: string;
+  status: WorkflowRunStatus;
+  durationMs: number;
+  steps: WorkflowRunStep[];
 }
 
 export type ReviewSource = 'google' | 'facebook' | 'yelp';
@@ -622,6 +692,7 @@ export interface WorkspaceState {
   sites: Site[];
   forms: FormDef[];
   workflows: Workflow[];
+  workflowRuns: WorkflowRun[];
   reviews: Review[];
   listings: Listing[];
   reviewRequests: ReviewRequest[];

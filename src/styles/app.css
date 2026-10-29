@@ -1661,6 +1661,74 @@ a {
   color: var(--accent);
 }
 
+.flow__condition {
+  display: contents;
+}
+.flow__branches {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.flow__branch {
+  min-width: 0;
+  padding: 9px 10px 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+.flow__branch--yes {
+  border-top: 2px solid var(--green);
+}
+.flow__branch--no {
+  border-top: 2px solid var(--line-strong);
+}
+.flow__branch-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.flow__branch-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+.flow__branch .flow__node {
+  align-self: stretch;
+  margin-bottom: 6px;
+  padding: 6px 8px;
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+.flow__branch .flow__node-main {
+  flex: 1 1 calc(100% - 40px);
+}
+.flow__branch .flow__node-tools {
+  flex-basis: 100%;
+  justify-content: flex-end;
+}
+.flow__branch .flow__node::before {
+  display: none;
+}
+.flow__branch .flow__node-tools .icon-btn {
+  width: 20px;
+  height: 20px;
+}
+.flow__branch .flow__add {
+  margin: 0 0 6px;
+  padding: 4px 8px;
+  font-size: 11.5px;
+}
+.flow__branch-empty {
+  padding: 2px 0 8px;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
 /* ---------- Builders ---------- */
 
 .builder-box {
