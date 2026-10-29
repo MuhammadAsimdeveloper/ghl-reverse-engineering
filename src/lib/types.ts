@@ -234,12 +234,19 @@ export interface SocialPost {
   comments: number;
 }
 
+export type PageTheme = 'gradient' | 'plain' | 'dark';
+
 export interface SitePage {
   id: ID;
   name: string;
   path: string;
   visits: number;
   optins: number;
+  /** Hero content edited in the website builder; funnels leave these empty. */
+  headline?: string;
+  subhead?: string;
+  cta?: string;
+  theme?: PageTheme;
 }
 
 export interface Site {
@@ -256,6 +263,13 @@ export type FormKind = 'form' | 'survey';
 
 export type FormFieldType = 'text' | 'email' | 'phone' | 'textarea' | 'select' | 'consent';
 
+export interface FieldCondition {
+  /** The dropdown field whose answer controls visibility. */
+  fieldId: ID;
+  /** Show this field only when that answer equals this choice. */
+  equals: string;
+}
+
 export interface FormField {
   id: ID;
   label: string;
@@ -263,6 +277,7 @@ export interface FormField {
   required: boolean;
   /** Choices for select fields; ignored by every other type. */
   options: string[];
+  showIf?: FieldCondition;
 }
 
 export interface FormDef {
@@ -496,6 +511,7 @@ export interface EmailTemplate {
   name: string;
   category: string;
   subject: string;
+  body: string;
   updatedAt: string;
   uses: number;
 }

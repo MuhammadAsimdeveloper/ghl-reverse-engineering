@@ -307,11 +307,26 @@ function FormEditor({ form, onClose }: { form: FormDef; onClose: () => void }) {
   const [type, setType] = useState<FormFieldType>('text');
   const [required, setRequired] = useState(false);
   const [options, setOptions] = useState('');
+  const [conditionFieldId, setConditionFieldId] = useState('');
+  const [conditionValue, setConditionValue] = useState('');
+  const [answers, setAnswers] = useState<Record<string, string>>({});
 
   const choices = parseOptions(options);
   const canSaveField =
-    label.trim().length > 1 && (type !== 'select' || choices.length >= 2);
+    label.trim().length > 1 &&
+    (type !== 'select' || choices.length >= 2) &&
+    (conditionFieldId === '' || conditionValue !== '');
   const canRename = name.trim().length > 1 && name.trim() !== form.name;
+
+  const conditionFields = form.fields.filter(
+    (field) => field.type === 'select' && field.options.length > 0 && field.id !== fieldId,
+  );
+  const conditionSource = conditionFields.find((field) => field.id === conditionFieldId);
+
+  const visibleFields = form.fields.filter(
+    (field) => !field.showIf || answers[field.showIf.fieldId] === field.showIf.equals,
+  );
+  const conditionalCount = form.fields.filter((field) => field.showIf).length;
 
   const resetFieldForm = () => {
     setFieldId(null);
@@ -319,6 +334,8 @@ function FormEditor({ form, onClose }: { form: FormDef; onClose: () => void }) {
     setType('text');
     setRequired(false);
     setOptions('');
+    setConditionFieldId('');
+    setConditionValue('');
   };
 
   const startEdit = (field: FormField) => {
@@ -327,15 +344,21 @@ function FormEditor({ form, onClose }: { form: FormDef; onClose: () => void }) {
     setType(field.type);
     setRequired(field.required);
     setOptions(field.options.join(', '));
+    setConditionFieldId(field.showIf?.fieldId ?? '');
+    setConditionValue(field.showIf?.equals ?? '');
   };
 
   const saveField = () => {
     if (!canSaveField) return;
-    const patch = {
+    const patch: Partial<FormField> = {
       label: label.trim(),
       type,
       required,
       options: type === 'select' ? choices : [],
+      showIf:
+        conditionFieldId && conditionValue
+          ? { fieldId: conditionFieldId, equals: conditionValue }
+          : undefined,
     };
     if (fieldId) {
       dispatch({ type: 'form/field/update', formId: form.id, id: fieldId, patch });
@@ -343,7 +366,7 @@ function FormEditor({ form, onClose }: { form: FormDef; onClose: () => void }) {
       dispatch({
         type: 'form/field/add',
         formId: form.id,
-        field: { id: uid('ff'), ...patch },
+        field: { id: uid('ff'), label: patch.label ?? '', type, required, options: patch.options ?? [], showIf: patch.showIf },
       });
     }
     resetFieldForm();
@@ -401,6 +424,7 @@ function FormEditor({ form, onClose }: { form: FormDef; onClose: () => void }) {
                   <div className="field-row__meta">
                     <Badge tone="blue">{labelFor(field.type)}</Badge>
                     {field.required && <Badge tone="amber">Required</Badge>}
+                    {field.showIf && <Badge tone="violet">Conditional</Badge>}
                     {field.type === 'select' && field.options.length > 0 && (
                       <span className="cell-sub">{field.options.join(' · ')}</span>
                     )}
@@ -491,6 +515,45 @@ function FormEditor({ form, onClose }: { form: FormDef; onClose: () => void }) {
                 {choices.length < 2 && <div className="hint">Add at least two choices to save this dropdown.</div>}
               </div>
             )}
+            <div className="grid grid--2" style={{ marginTop: 10 }}>
+              <div className="field">
+                <label htmlFor="field-condition">Show only when</label>
+                <select
+                  id="field-condition"
+                  className="select"
+                  value={conditionFieldId}
+                  onChange={(e) => {
+                    setConditionFieldId(e.target.value);
+                    setConditionValue('');
+                  }}
+                >
+                  <option value="">Always visible</option>
+                  {conditionFields.map((field) => (
+                    <option key={field.id} value={field.id}>
+                      {field.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {conditionFieldId && (
+                <div className="field">
+                  <label htmlFor="field-condition-value">Answer equals</label>
+                  <select
+                    id="field-condition-value"
+                    className="select"
+                    value={conditionValue}
+                    onChange={(e) => setConditionValue(e.target.value)}
+                  >
+                    <option value="">Choose a value</option>
+                    {(conditionSource?.options ?? []).map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
             <div className="row row--between" style={{ marginTop: 10 }}>
               <div className="row" style={{ gap: 8 }}>
                 <Switch on={required} label="Field required" onChange={() => setRequired((v) => !v)} />
@@ -513,11 +576,17 @@ function FormEditor({ form, onClose }: { form: FormDef; onClose: () => void }) {
           <div className="form-preview">
             <div className="form-preview__title">{name.trim() || form.name}</div>
             {form.fields.length === 0 && <div className="hint">Add a field to see it here.</div>}
-            {form.fields.map((field) => (
+            {visibleFields.map((field) => (
               <div className="form-preview__field" key={field.id}>
                 {field.type === 'consent' ? (
                   <label className="checkbox">
-                    <input type="checkbox" disabled />
+                    <input
+                      type="checkbox"
+                      checked={answers[field.id] === 'yes'}
+                      onChange={(e) =>
+                        setAnswers((current) => ({ ...current, [field.id]: e.target.checked ? 'yes' : '' }))
+                      }
+                    />
                     <span>
                       {field.label}
                       {field.required && <span className="form-preview__req">*</span>}
@@ -530,9 +599,19 @@ function FormEditor({ form, onClose }: { form: FormDef; onClose: () => void }) {
                       {field.required && <span className="form-preview__req">*</span>}
                     </label>
                     {field.type === 'textarea' ? (
-                      <textarea className="input" rows={3} disabled placeholder="Type your answer…" />
+                      <textarea
+                        className="input"
+                        rows={3}
+                        placeholder="Type your answer…"
+                        value={answers[field.id] ?? ''}
+                        onChange={(e) => setAnswers((current) => ({ ...current, [field.id]: e.target.value }))}
+                      />
                     ) : field.type === 'select' ? (
-                      <select className="select" disabled defaultValue="">
+                      <select
+                        className="select"
+                        value={answers[field.id] ?? ''}
+                        onChange={(e) => setAnswers((current) => ({ ...current, [field.id]: e.target.value }))}
+                      >
                         <option value="" disabled>
                           Select…
                         </option>
@@ -543,9 +622,10 @@ function FormEditor({ form, onClose }: { form: FormDef; onClose: () => void }) {
                     ) : (
                       <input
                         className="input"
-                        disabled
                         type={field.type === 'email' ? 'email' : field.type === 'phone' ? 'tel' : 'text'}
                         placeholder={field.type === 'email' ? 'name@example.com' : field.type === 'phone' ? '+1 555 000 0000' : 'Type your answer…'}
+                        value={answers[field.id] ?? ''}
+                        onChange={(e) => setAnswers((current) => ({ ...current, [field.id]: e.target.value }))}
                       />
                     )}
                   </>
@@ -556,6 +636,12 @@ function FormEditor({ form, onClose }: { form: FormDef; onClose: () => void }) {
               Submit
             </button>
           </div>
+          {conditionalCount > 0 && (
+            <div className="hint" style={{ marginTop: 8 }}>
+              {visibleFields.length} of {form.fields.length} fields visible — answer the dropdowns to see
+              branches appear.
+            </div>
+          )}
           <div className="hint" style={{ marginTop: 8 }}>
             Preview only — submissions are simulated and stored locally.
           </div>

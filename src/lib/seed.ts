@@ -1,4 +1,4 @@
-import type { FormField, WorkspaceState } from './types';
+import type { FieldCondition, FormField, WorkspaceState } from './types';
 
 const now = new Date();
 
@@ -24,8 +24,9 @@ function field(
   type: FormField['type'],
   required = false,
   options: string[] = [],
+  showIf?: FieldCondition,
 ): FormField {
-  return { id, label, type, required, options };
+  return { id, label, type, required, options, ...(showIf ? { showIf } : {}) };
 }
 
 export const seed: WorkspaceState = {
@@ -413,11 +414,41 @@ export const seed: WorkspaceState = {
     {
       id: 'w1', name: 'Agency Homepage', kind: 'website', published: true, visits: 33100, optins: 402,
       pages: [
-        { id: 'wp1', name: 'Home', path: '/', visits: 33100, optins: 402 },
-        { id: 'wp2', name: 'Services', path: '/services', visits: 18400, optins: 0 },
-        { id: 'wp3', name: 'About', path: '/about', visits: 9100, optins: 0 },
-        { id: 'wp4', name: 'Contact', path: '/contact', visits: 5200, optins: 0 },
-        { id: 'wp5', name: 'Blog', path: '/blog', visits: 12800, optins: 0 },
+        {
+          id: 'wp1', name: 'Home', path: '/', visits: 33100, optins: 402,
+          headline: 'Grow faster with a system that runs itself',
+          subhead: 'Campaigns, pipelines and follow-up in one workspace, built for busy agencies.',
+          cta: 'Book a call',
+          theme: 'gradient',
+        },
+        {
+          id: 'wp2', name: 'Services', path: '/services', visits: 18400, optins: 0,
+          headline: 'Services that compound',
+          subhead: 'Paid acquisition, lifecycle automation and reporting under one retainer.',
+          cta: 'See pricing',
+          theme: 'plain',
+        },
+        {
+          id: 'wp3', name: 'About', path: '/about', visits: 9100, optins: 0,
+          headline: 'A small team with a bias for shipping',
+          subhead: 'We have run growth for 40+ agencies and product teams since 2019.',
+          cta: 'Meet the team',
+          theme: 'plain',
+        },
+        {
+          id: 'wp4', name: 'Contact', path: '/contact', visits: 5200, optins: 0,
+          headline: 'Tell us where growth is stuck',
+          subhead: 'Send a note and we will reply with a short, specific plan within one business day.',
+          cta: 'Send a message',
+          theme: 'dark',
+        },
+        {
+          id: 'wp5', name: 'Blog', path: '/blog', visits: 12800, optins: 0,
+          headline: 'Notes from the growth desk',
+          subhead: 'Playbooks, teardowns and experiments from the runs we ship every week.',
+          cta: 'Read latest',
+          theme: 'plain',
+        },
       ],
     },
     {
@@ -465,7 +496,8 @@ export const seed: WorkspaceState = {
       id: 'sv1', name: 'Post-Demo NPS', kind: 'survey', published: true, submissions: 96,
       fields: [
         field('ff17', 'How likely are you to recommend us?', 'select', true, ['1', '2', '3', '4', '5']),
-        field('ff18', 'What went well?', 'textarea'),
+        field('ff18', 'What went well?', 'textarea', false, [], { fieldId: 'ff17', equals: '5' }),
+        field('ff28', 'What could we improve?', 'textarea', false, [], { fieldId: 'ff17', equals: '3' }),
         field('ff19', 'I agree to be contacted about my feedback', 'consent'),
       ],
     },
@@ -939,12 +971,30 @@ export const seed: WorkspaceState = {
   ],
 
   templates: [
-    { id: 'tp1', name: 'Welcome sequence', category: 'Onboarding', subject: 'Welcome aboard — here is what happens next', updatedAt: day(-6), uses: 148 },
-    { id: 'tp2', name: 'Invoice reminder', category: 'Billing', subject: 'Quick reminder about invoice {{number}}', updatedAt: day(-12), uses: 312 },
-    { id: 'tp3', name: 'Appointment confirmation', category: 'Scheduling', subject: 'Your appointment is confirmed', updatedAt: day(-3), uses: 204 },
-    { id: 'tp4', name: 'Review request', category: 'Reputation', subject: 'How did we do?', updatedAt: day(-9), uses: 96 },
-    { id: 'tp5', name: 'Re-engagement', category: 'Win-back', subject: 'It has been a while — here is 15% off', updatedAt: day(-21), uses: 74 },
-    { id: 'tp6', name: 'Product launch', category: 'Marketing', subject: 'Something new just landed', updatedAt: day(-1), uses: 18 },
+    {
+      id: 'tp1', name: 'Welcome sequence', category: 'Onboarding', subject: 'Welcome aboard — here is what happens next', updatedAt: day(-6), uses: 148,
+      body: 'Hi {{contact.first_name}},\n\nWelcome aboard! Over the next two weeks we will set up your dashboard, connect your channels and ship the first campaign.\n\nYour kickoff call is already on the calendar. Reply here if you need to move it.\n\n— {{custom_values.email_signature}}',
+    },
+    {
+      id: 'tp2', name: 'Invoice reminder', category: 'Billing', subject: 'Quick reminder about invoice {{number}}', updatedAt: day(-12), uses: 312,
+      body: 'Hi {{contact.first_name}},\n\nA quick reminder that invoice {{number}} is due this week. You can pay it from the link in your portal.\n\nIf it is already scheduled, please ignore this note.\n\nThanks,\n{{custom_values.business_name}}',
+    },
+    {
+      id: 'tp3', name: 'Appointment confirmation', category: 'Scheduling', subject: 'Your appointment is confirmed', updatedAt: day(-3), uses: 204,
+      body: 'Hi {{contact.first_name}},\n\nYour appointment is confirmed. We will meet at the time on your calendar invite and keep it to 30 minutes.\n\nNeed to reschedule? Use {{custom_values.booking_link}}.\n\n— {{custom_values.business_name}}',
+    },
+    {
+      id: 'tp4', name: 'Review request', category: 'Reputation', subject: 'How did we do?', updatedAt: day(-9), uses: 96,
+      body: 'Hi {{contact.first_name}},\n\nThanks for trusting us with your growth work. If the last sprint delivered value, a short review would help another team find us.\n\nLeave a review: {{custom_values.review_link}}\n\nThank you,\n{{custom_values.email_signature}}',
+    },
+    {
+      id: 'tp5', name: 'Re-engagement', category: 'Win-back', subject: 'It has been a while — here is 15% off', updatedAt: day(-21), uses: 74,
+      body: 'Hi {{contact.first_name}},\n\nIt has been a while since we last spoke. If growth is back on the roadmap, here is 15% off your next sprint.\n\nReply "sprint" and I will send the details.\n\n— {{custom_values.email_signature}}',
+    },
+    {
+      id: 'tp6', name: 'Product launch', category: 'Marketing', subject: 'Something new just landed', updatedAt: day(-1), uses: 18,
+      body: 'Hi {{contact.first_name}},\n\nSomething new just landed: reusable survey branching, so every form asks only the questions that matter.\n\nTake a look and tell us what you think.\n\n— {{custom_values.business_name}}',
+    },
   ],
 
   triggerLinks: [

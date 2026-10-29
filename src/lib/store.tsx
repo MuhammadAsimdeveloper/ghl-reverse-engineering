@@ -20,6 +20,7 @@ import type {
   CustomField,
   CustomValue,
   DashboardWidget,
+  EmailTemplate,
   FormDef,
   FormField,
   Invoice,
@@ -49,7 +50,7 @@ import type {
   WorkflowAction,
 } from './types';
 
-const STORAGE_KEY = 'ghl-lite.workspace.v9';
+const STORAGE_KEY = 'ghl-lite.workspace.v10';
 
 export function uid(prefix = 'id'): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
@@ -154,6 +155,9 @@ export type Action =
   | { type: 'subscription/status'; id: string; status: 'active' | 'past_due' | 'canceled' }
   | { type: 'affiliate/status'; id: string; status: 'active' | 'pending' | 'paused' }
   | { type: 'template/use'; id: string }
+  | { type: 'template/add'; template: EmailTemplate }
+  | { type: 'template/update'; id: string; patch: Partial<Pick<EmailTemplate, 'name' | 'category' | 'subject' | 'body'>> }
+  | { type: 'template/delete'; id: string }
   | { type: 'triggerLink/add'; link: TriggerLink }
   | { type: 'triggerLink/click'; id: string }
   | { type: 'blog/toggle'; id: string }
@@ -819,6 +823,20 @@ function applyAction(state: WorkspaceState, action: Action): WorkspaceState {
         templates: state.templates.map((t) => (t.id === action.id ? { ...t, uses: t.uses + 1 } : t)),
       };
 
+    case 'template/add':
+      return { ...state, templates: [action.template, ...state.templates] };
+
+    case 'template/update':
+      return {
+        ...state,
+        templates: state.templates.map((t) =>
+          t.id === action.id ? { ...t, ...action.patch, updatedAt: new Date().toISOString() } : t,
+        ),
+      };
+
+    case 'template/delete':
+      return { ...state, templates: state.templates.filter((t) => t.id !== action.id) };
+
     case 'triggerLink/add':
       return { ...state, triggerLinks: [action.link, ...state.triggerLinks] };
 
@@ -1326,36 +1344,54 @@ function auditMeta(
         entity: 'Store',
         detail: `${action.order.number} · $${action.order.total.toLocaleString('en-US')}${action.order.gateway ? ` · ${action.order.gateway}` : ''}`,
       };
+    case 'template/add':
+      return { action: 'Template created', entity: 'Template', detail: action.template.name };
+    case 'template/update':
+      return {
+        action: 'Template updated',
+        entity: 'Template',
+        detail: action.patch.name ?? byId(state.templates, action.id)?.name,
+      };
+    case 'template/delete':
+      return {
+        action: 'Template deleted',
+        entity: 'Template',
+        detail: byId(state.templates, action.id)?.name,
+      };
     case 'site/step/add': {
       const site = byId(state.sites, action.siteId);
+      const noun = site?.kind === 'website' ? 'Website page' : 'Funnel step';
       return {
-        action: 'Funnel step added',
-        entity: 'Funnel',
+        action: `${noun} added`,
+        entity: site?.kind === 'website' ? 'Website' : 'Funnel',
         detail: site ? `${site.name} · ${action.page.name}` : action.page.name,
       };
     }
     case 'site/step/update': {
       const site = byId(state.sites, action.siteId);
       const page = site?.pages.find((p) => p.id === action.id);
+      const noun = site?.kind === 'website' ? 'Website page' : 'Funnel step';
       return {
-        action: 'Funnel step updated',
-        entity: 'Funnel',
+        action: `${noun} updated`,
+        entity: site?.kind === 'website' ? 'Website' : 'Funnel',
         detail: site ? `${site.name} · ${action.patch.name ?? page?.name ?? ''}` : action.patch.name,
       };
     }
     case 'site/step/move': {
       const site = byId(state.sites, action.siteId);
+      const noun = site?.kind === 'website' ? 'Website page' : 'Funnel step';
       return {
-        action: 'Funnel step reordered',
-        entity: 'Funnel',
+        action: `${noun} reordered`,
+        entity: site?.kind === 'website' ? 'Website' : 'Funnel',
         detail: site ? `${site.name} · ${site.pages.find((p) => p.id === action.id)?.name ?? ''}` : undefined,
       };
     }
     case 'site/step/delete': {
       const site = byId(state.sites, action.siteId);
+      const noun = site?.kind === 'website' ? 'Website page' : 'Funnel step';
       return {
-        action: 'Funnel step removed',
-        entity: 'Funnel',
+        action: `${noun} removed`,
+        entity: site?.kind === 'website' ? 'Website' : 'Funnel',
         detail: site ? `${site.name} · ${site.pages.find((p) => p.id === action.id)?.name ?? ''}` : undefined,
       };
     }

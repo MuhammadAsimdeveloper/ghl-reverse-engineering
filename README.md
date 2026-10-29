@@ -51,12 +51,13 @@ npm run lint       # ESLint (flat config, TypeScript + React hooks rules)
 | Audit Log | `/audit-log` | Every workspace mutation, filterable by actor and entity |
 | Contracts | `/documents` | Proposals/contracts/estimates, create modal, status pipeline |
 | Campaigns | `/campaigns` | Email/SMS metrics, CTR bars, delivery funnel, tag/status/age segment builder with live reach |
+| Email Templates | `/templates` | Category filters, subject copy, full template editor with token chips and a live merge preview against a sample contact |
 | Social Planner | `/social` | Draft → scheduled → published board, post composer |
 | Prospecting | `/prospecting` | Scored prospect table, filters, one-click import to contacts |
 | Media Library | `/media` | Folder/type filters, asset grid, upload + delete |
 | Funnels | `/funnels` | Editable step builder (rename, reorder, per-step opt-in rate), duplicate, publish toggle |
-| Websites | `/websites` | Site pages, per-page stats, preview modal |
-| Forms & Surveys | `/forms` | Type tabs, live toggles, field editor with types/options/required flags and a live preview |
+| Websites | `/websites` | Page table with reorder/edit/delete, per-page hero editor (headline, subhead, CTA, theme) and a themed site preview |
+| Forms & Surveys | `/forms` | Type tabs, live toggles, field editor with types/options/required flags, conditional logic (`show this when answer equals…`) and an interactive branching preview |
 | Workflows | `/workflows` | Editable automation builder — rename, retrigger, reorder/add/edit/remove steps with wait delays |
 | Store | `/store` | Product storefront, cart, coupon redemption, simulated gateways with fee math, atomic checkout |
 | Memberships | `/memberships` | Course/community offers, lesson curriculum with per-lesson drip days, unlock counts |
@@ -90,7 +91,7 @@ src/
 
 There is no backend. `StoreProvider` holds the whole workspace in a `useReducer`, and every
 action returns a new immutable state. The state is mirrored into `localStorage` under
-`ghl-lite.workspace.v9` after each change, so your edits survive a refresh. **Settings → Workspace
+`ghl-lite.workspace.v10` after each change, so your edits survive a refresh. **Settings → Workspace
 data → Reset** restores the seed. A derived audit log records every logged mutation, and
 snippets resolve `{{contact.*}}` and `{{custom_values.*}}` tokens when inserted into a reply.
 
@@ -115,6 +116,14 @@ and the audience count as a snapshot taken when it was created — later contact
 silently rewrite a campaign that has already been scheduled. Form fields and workflow steps are
 plain ordered arrays in state, so reordering is a swap of two indices with bounds checks rather
 than a separate order column that can drift out of sync.
+
+Conditional form fields store only the rule (`{ fieldId, equals }`); the preview compares it
+against the answers typed into the live preview, so branch visibility is computed on every
+keystroke instead of persisted as a visible flag. Email template bodies keep their raw
+`{{contact.*}}` / `{{custom_values.*}}` tokens in state and resolve them through the same merge
+helper used by snippets whenever a preview or copy action needs rendered text. Website page
+content (headline, subhead, CTA, theme) lives on the `SitePage` record, so the page editor drafts
+a patch locally and the site preview re-renders straight from state on save.
 
 To add a field or entity:
 
